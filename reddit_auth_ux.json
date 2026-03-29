@@ -1,0 +1,112 @@
+[
+    {
+        "id": "1oivjvm",
+        "title": "Claude Code is a Beast – Tips from 6 Months of Hardcore Use",
+        "score": 2285,
+        "num_comments": 321,
+        "url": "https://www.reddit.com/r/ClaudeAI/comments/1oivjvm/claude_code_is_a_beast_tips_from_6_months_of/",
+        "selftext": "*Quick pro-tip from a fellow lazy person: You can throw this book of a post into one of the many text-to-speech AI services like* [*ElevenLabs Reader*](https://elevenlabs.io/text-reader) *or* [*Natural Reader*](https://www.naturalreaders.com/online/) *and have it read the post for you* :)\n\nEdit: Many of you are asking for a repo so I will make an effort to get one up in the next couple days. All of this is a part of a work project at the moment, so I have to take some time to copy everything int",
+        "created_utc": 1761712956.0,
+        "subreddit": "ClaudeAI",
+        "permalink": "https://www.reddit.com/r/ClaudeAI/comments/1oivjvm/claude_code_is_a_beast_tips_from_6_months_of/"
+    },
+    {
+        "id": "1qyi3wz",
+        "title": "RIP Postman free tier. Here's an open-source local-first alternative we've been building for over a year",
+        "score": 1138,
+        "num_comments": 198,
+        "url": "https://www.reddit.com/gallery/1qyi3wz",
+        "selftext": "Hello r/rwebdev,\n\nA bit over a year ago, u/moosebay1, u/electwix, and me set out to build DevTools Studio - an open-source local-first alternative to Postman, and with them announcing pricing changes on March 1st, we figured this is a good time to share our progress so far.\n\nIf you know Postman, you'll feel at home. The UI is familiar with request builder, collections, environments. But instead of just running requests, you can connect them into visual flows like n8n.\n\n## Here is how our app sta",
+        "created_utc": 1770481470.0,
+        "subreddit": "webdev",
+        "permalink": "https://www.reddit.com/r/webdev/comments/1qyi3wz/rip_postman_free_tier_heres_an_opensource/"
+    },
+    {
+        "id": "1roa2ql",
+        "title": "How do you handle auth flow in Expo Router?",
+        "score": 5,
+        "num_comments": 6,
+        "url": "https://www.reddit.com/r/reactnative/comments/1roa2ql/how_do_you_handle_auth_flow_in_expo_router/",
+        "selftext": "Hey everyone 👋\n\nI’m working on a **React Native app using Expo + Expo Router**, and I’m about to implement the **authentication flow**. In my app, users must be **logged in to access most screens**.\n\nBefore I start implementing it myself, I wanted to see **how other developers handle this in their apps**.\n\nFor example:\n\n* Do you implement some kind of **middleware/route guard**?\n* Do you handle it in a **root layout** and conditionally render stacks?\n* Do you use an **Auth provider/context** tha",
+        "created_utc": 1772989417.0,
+        "subreddit": "reactnative",
+        "permalink": "https://www.reddit.com/r/reactnative/comments/1roa2ql/how_do_you_handle_auth_flow_in_expo_router/"
+    },
+    {
+        "id": "1roa2xt",
+        "title": "How do you handle auth flow in Expo Router?",
+        "score": 3,
+        "num_comments": 3,
+        "url": "https://www.reddit.com/r/expo/comments/1roa2xt/how_do_you_handle_auth_flow_in_expo_router/",
+        "selftext": "Hey everyone 👋\n\nI’m working on a **React Native app using Expo + Expo Router**, and I’m about to implement the **authentication flow**. In my app, users must be **logged in to access most screens**.\n\nBefore I start implementing it myself, I wanted to see **how other developers handle this in their apps**.\n\nFor example:\n\n* Do you implement some kind of **middleware/route guard**?\n* Do you handle it in a **root layout** and conditionally render stacks?\n* Do you use an **Auth provider/context** tha",
+        "created_utc": 1772989430.0,
+        "subreddit": "expo",
+        "permalink": "https://www.reddit.com/r/expo/comments/1roa2xt/how_do_you_handle_auth_flow_in_expo_router/"
+    },
+    {
+        "id": "1qs4n6t",
+        "title": "Feedback needed: React Native auth flow (email verification + password reset)",
+        "score": 1,
+        "num_comments": 4,
+        "url": "https://www.reddit.com/r/reactnative/comments/1qs4n6t/feedback_needed_react_native_auth_flow_email/",
+        "selftext": " open-source React Native app and would appreciate feedback or collaboration on a mobile authentication flow.\n- Scope on the RN side:\n- Registration &amp; login UI\n- Password match validation\n- Email verification flow\n- Password recovery UX (deep links / reset screen)\n\nBackend already exists (Django); I’m mainly looking for React Native best practices and clean implementation patterns.\n\nRepo (mobile):\nhttps://github.com/georgetoloraia/selflink-mobile\n\nIf anyone wants to look at the flow, suggest",
+        "created_utc": 1769871867.0,
+        "subreddit": "reactnative",
+        "permalink": "https://www.reddit.com/r/reactnative/comments/1qs4n6t/feedback_needed_react_native_auth_flow_email/"
+    },
+    {
+        "id": "1pykqk3",
+        "title": "Sveltekit SPA + Firebase Auth + Boilerplate UX",
+        "score": 10,
+        "num_comments": 2,
+        "url": "https://www.reddit.com/r/sveltejs/comments/1pykqk3/sveltekit_spa_firebase_auth_boilerplate_ux/",
+        "selftext": "Hi all,\n\nMade a minimalist boilerplate project for prototyping a SPA. My goal was to create something that's very quick and easy to setup and has boilerplate UX flows like login, signup, reset password and some basic account management features.\n\n**Stack**\n\n* Sveltekit in SPA mode (ssr is false)\n* Firebase Auth and transactional emails\n* Firestore\n* ShadCN Svelte / Tailwind 4\n\n  \n**UX boilerplate**\n\n* Login\n* Sign up\n* Reset password\n* Log out\n* Account management\n   * Change name, email, passwo",
+        "created_utc": 1767010271.0,
+        "subreddit": "sveltejs",
+        "permalink": "https://www.reddit.com/r/sveltejs/comments/1pykqk3/sveltekit_spa_firebase_auth_boilerplate_ux/"
+    },
+    {
+        "id": "1rz59g4",
+        "title": "My vibe coded 3D city hit 66K users and $953 revenue in 29 days. Here's what a solo dev + AI can do with $0 marketing.",
+        "score": 511,
+        "num_comments": 128,
+        "url": "https://www.reddit.com/r/vibecoding/comments/1rz59g4/my_vibe_coded_3d_city_hit_66k_users_and_953/",
+        "selftext": "https://reddit.com/link/1rz59g4/video/glvcz06t09qg1/player\n\n24 days ago I posted here about vibe coding a 3D city with Claude, 21,000 lines, every GitHub dev is a building. That post got 701 upvotes and 106K views.\n\nSince then, the project exploded. Here's what happened.\n\n**Still 100% vibe coded with Claude.** 176 commits later, the AI handled the ad platform, payment integrations (Stripe + PIX), PvP raid system, achievement engine, daily missions, XP leveling, fly mode, a full sky ad analytics ",
+        "created_utc": 1774033745.0,
+        "subreddit": "vibecoding",
+        "permalink": "https://www.reddit.com/r/vibecoding/comments/1rz59g4/my_vibe_coded_3d_city_hit_66k_users_and_953/"
+    },
+    {
+        "id": "1rdw12q",
+        "title": "I vibe coded a 3D city with 21,000 lines in 4 days - every GitHub dev is a building",
+        "score": 701,
+        "num_comments": 91,
+        "url": "https://v.redd.it/9b44pnhzwilg1",
+        "selftext": "Built entirely with Claude. 21,000 lines of Next.js + Three.js + React Three Fiber + Supabase + Stripe.\n\nThe result: a 3D pixel art city where every GitHub developer is a building. You can fly through it, unlock achievements, compete on leaderboards, and customize your building with items like hologram rings and neon auras.\n\nIt went viral in Brazil (96k views in 24h). People started buying ad space inside the 3D city. Revenue on day 1 from an open source project.\n\nSome technical challenges the A",
+        "created_utc": 1771974536.0,
+        "subreddit": "vibecoding",
+        "permalink": "https://www.reddit.com/r/vibecoding/comments/1rdw12q/i_vibe_coded_a_3d_city_with_21000_lines_in_4_days/"
+    },
+    {
+        "id": "1my0jla",
+        "title": "Full user auth flow",
+        "score": 1,
+        "num_comments": 7,
+        "url": "https://www.reddit.com/r/SaasDevelopers/comments/1my0jla/full_user_auth_flow/",
+        "selftext": "Hi there, I’d like to handle the full user auth flow in a low-code/no-code way:\n\t•\tlogin / sign-up\n\t•\tpassword reset &amp; management\n\t•\tcustomizable registration forms\n\t•\tbranded transactional emails (welcome, password reset, etc.)\n\nRight now I’m using Google Firebase for authentication Google Firestore for role management and integrating with Brevo for emails, but I’m wondering:\n📌 Has anyone here tried low-code platforms or tools that can cover this end-to-end with less setup and more flexibil",
+        "created_utc": 1755953228.0,
+        "subreddit": "SaasDevelopers",
+        "permalink": "https://www.reddit.com/r/SaasDevelopers/comments/1my0jla/full_user_auth_flow/"
+    },
+    {
+        "id": "1oivs81",
+        "title": "Claude Code is a Beast – Tips from 6 Months of Hardcore Use",
+        "score": 862,
+        "num_comments": 97,
+        "url": "https://www.reddit.com/r/ClaudeCode/comments/1oivs81/claude_code_is_a_beast_tips_from_6_months_of/",
+        "selftext": "Edit: Many of you are asking for a repo so I will make an effort to get one up in the next couple days. All of this is a part of a work project at the moment, so I have to take some time to copy everything into a fresh project and scrub any identifying info. I will post the link here when it's up. You can also follow me and I will post it on my profile so you get notified. Thank you all for the kind comments. I'm happy to share this info with others since I don't get much chance to do so in my d",
+        "created_utc": 1761713768.0,
+        "subreddit": "ClaudeCode",
+        "permalink": "https://www.reddit.com/r/ClaudeCode/comments/1oivs81/claude_code_is_a_beast_tips_from_6_months_of/"
+    }
+]

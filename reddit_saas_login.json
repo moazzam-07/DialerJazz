@@ -1,0 +1,112 @@
+[
+    {
+        "id": "1iu4rom",
+        "title": "🆕 Cosmos 0.18 - All in one secure Reverse-proxy, container manager with app store, integrated VPN, authentication provider, Storage, and Monitoring, now with Automated Backups, CA, OpenID Gate and more!",
+        "score": 271,
+        "num_comments": 78,
+        "url": "https://www.reddit.com/r/selfhosted/comments/1iu4rom/cosmos_018_all_in_one_secure_reverseproxy/",
+        "selftext": "link: [https://github.com/azukaar/Cosmos-Server/](https://github.com/azukaar/Cosmos-Server/)\n\n0.18 is out! And it is juicy!\n\nhttps://preview.redd.it/b47y2yu3ebke1.png?width=1280&amp;format=png&amp;auto=webp&amp;s=b2f151e4d2145f789691cbb6623cd8415af456ff\n\n2 years ago, I started a journey to try and make self-hosting an accessible and safe alternative to SaaS product. Make servers **reliable, well setup, and secured**, for people to be able to manage their personal corner of the web, **without sac",
+        "created_utc": 1740074332.0,
+        "subreddit": "selfhosted",
+        "permalink": "https://www.reddit.com/r/selfhosted/comments/1iu4rom/cosmos_018_all_in_one_secure_reverseproxy/"
+    },
+    {
+        "id": "1n0l68d",
+        "title": "I quit my 9 to 5 after 20+ Lovable MVPs. Here’s the 5 day loop, and now I’m helping others do the same.",
+        "score": 159,
+        "num_comments": 52,
+        "url": "https://www.reddit.com/r/lovable/comments/1n0l68d/i_quit_my_9_to_5_after_20_lovable_mvps_heres_the/",
+        "selftext": "Most no-code builders take weeks to ship. I use this 5 day flow to go from idea to live app with AI. It has saved me 60 to 100 hours per project. Steal it.\n\n# Mini TOC\n\nDay 1: Problems → PRD → skeleton  \nDay 2: Finish core features  \nDay 3: Auth in two short prompts  \nDay 4: Stripe subs + SEO for LLMs  \nDay 5: Deploy cleanly  \nToolbox and FAQs\n\n# Day 1: Find real pains, write a PRD, build the skeleton\n\n* Hunt real pain in Reddit, Discord, and recent YouTube or TikTok comments. Save 3 to 5 screen",
+        "created_utc": 1756213185.0,
+        "subreddit": "lovable",
+        "permalink": "https://www.reddit.com/r/lovable/comments/1n0l68d/i_quit_my_9_to_5_after_20_lovable_mvps_heres_the/"
+    },
+    {
+        "id": "1jri96h",
+        "title": "My Honest Review as a Startup Selling a LTD on AppSumo",
+        "score": 122,
+        "num_comments": 79,
+        "url": "https://www.reddit.com/r/SaaS/comments/1jri96h/my_honest_review_as_a_startup_selling_a_ltd_on/",
+        "selftext": "# Why We Listed our platform on AppSumo\n\nWe decided to list our platform on AppSumo as part of a lifetime deal (LTD) campaign, hoping to gain exposure, generate revenue, and attract early adopters. Given that AppSumo has a large audience of entrepreneurs and businesses looking for innovative SaaS tools, it seemed like a great opportunity. However, our experience with the process, customer expectations, and revenue outcomes was far from what we initially anticipated.\n\n# The Initial Conversations ",
+        "created_utc": 1743789499.0,
+        "subreddit": "SaaS",
+        "permalink": "https://www.reddit.com/r/SaaS/comments/1jri96h/my_honest_review_as_a_startup_selling_a_ltd_on/"
+    },
+    {
+        "id": "1r8dndx",
+        "title": "I turned my personal Excel budget into a SaaS app last week. I have 0 real users and I don't know how to get them.",
+        "score": 1,
+        "num_comments": 26,
+        "url": "https://www.reddit.com/r/micro_saas/comments/1r8dndx/i_turned_my_personal_excel_budget_into_a_saas_app/",
+        "selftext": "For years I tracked my budget in Excel. It worked, but I always wanted something better, something visual (I always wanted a Sankey Graph), something smart, something that didn't require handing my bank login to a third party. So I built it for myself.\n\nLast week I decided other people might want it too. So I turned it into a SaaS. I'm terrified.\n\nIt's called [Liberty Budget](http://libertybudget.app/). The core idea is simple: upload your bank's CSV export, and the app automatically parses and ",
+        "created_utc": 1771445009.0,
+        "subreddit": "micro_saas",
+        "permalink": "https://www.reddit.com/r/micro_saas/comments/1r8dndx/i_turned_my_personal_excel_budget_into_a_saas_app/"
+    },
+    {
+        "id": "1s58o58",
+        "title": "Building a Personal Productivity Agent (Calendar + Email + Task Automation)",
+        "score": 1,
+        "num_comments": 0,
+        "url": "https://www.reddit.com/r/LightAPILLM/comments/1s58o58/building_a_personal_productivity_agent_calendar/",
+        "selftext": "# Scale Your Productivity, Not Your Bills: Building a Personal Productivity Agent with LightAPI\n\nSave on API costs instantly without sacrificing the intelligence of your applications. In the following tutorial, you will see how easy it is to deploy a high-performance **Personal Productivity Agent** designed to manage calendars, draft emails, and automate tasks.\n\nThe biggest hurdle for developers today isn’t the logic; it’s the scaling costs. Whether you are building internal tools or a commercia",
+        "created_utc": 1774628126.0,
+        "subreddit": "LightAPILLM",
+        "permalink": "https://www.reddit.com/r/LightAPILLM/comments/1s58o58/building_a_personal_productivity_agent_calendar/"
+    },
+    {
+        "id": "1r8di0z",
+        "title": "I turned my personal Excel budget into a SaaS app last week. I have 0 real users and I don't know how to get them.",
+        "score": 2,
+        "num_comments": 4,
+        "url": "https://www.reddit.com/r/buildinpublic/comments/1r8di0z/i_turned_my_personal_excel_budget_into_a_saas_app/",
+        "selftext": "For years I tracked my budget in Excel. It worked, but I always wanted something better, something visual (I always wanted a Sankey Graph), something smart, something that didn't require handing my bank login to a third party. So I built it for myself.\n\nLast week I decided other people might want it too. So I turned it into a SaaS. I'm terrified.\n\nIt's called [Liberty Budget](http://libertybudget.app). The core idea is simple: upload your bank's CSV export, and the app automatically parses and c",
+        "created_utc": 1771444689.0,
+        "subreddit": "buildinpublic",
+        "permalink": "https://www.reddit.com/r/buildinpublic/comments/1r8di0z/i_turned_my_personal_excel_budget_into_a_saas_app/"
+    },
+    {
+        "id": "1rg7yzx",
+        "title": "Dev Updates",
+        "score": 1,
+        "num_comments": 2,
+        "url": "https://www.reddit.com/r/atlas_ux_dev/comments/1rg7yzx/dev_updates/",
+        "selftext": "# Dev updates\n\nLast updated: Feb 27, 2026\n\n* Started construction of an idea with Figma, for clean user friendly standalone ai employee\n* Stated initial seating pricing and stored UI on supabase for demo mode only\n* Published Initial UI(user interface) wireframe to web from Figma.\n* Removed Demo Mode only and went live with frontend at Vercel\n* Set up backend wiring to run through onrender\n* Started work with ChatGPT 5.2 to integrate my wireframe into a real program\n* Created first backend files",
+        "created_utc": 1772202072.0,
+        "subreddit": "atlas_ux_dev",
+        "permalink": "https://www.reddit.com/r/atlas_ux_dev/comments/1rg7yzx/dev_updates/"
+    },
+    {
+        "id": "1rg7yqv",
+        "title": "Dev Updates",
+        "score": 1,
+        "num_comments": 2,
+        "url": "https://www.reddit.com/r/atlasux/comments/1rg7yqv/dev_updates/",
+        "selftext": "# Dev updates\n\nLast updated: Feb 27, 2026\n\n* Started construction of an idea with Figma, for clean user friendly standalone ai employee\n* Stated initial seating pricing and stored UI on supabase for demo mode only\n* Published Initial UI(user interface) wireframe to web from Figma.\n* Removed Demo Mode only and went live with frontend at Vercel\n* Set up backend wiring to run through onrender\n* Started work with ChatGPT 5.2 to integrate my wireframe into a real program\n* Created first backend files",
+        "created_utc": 1772202054.0,
+        "subreddit": "atlasux",
+        "permalink": "https://www.reddit.com/r/atlasux/comments/1rg7yqv/dev_updates/"
+    },
+    {
+        "id": "1qurffs",
+        "title": "Your 'we miss you' emails don't work (and you already know it)",
+        "score": 2,
+        "num_comments": 5,
+        "url": "https://www.reddit.com/r/SaaS/comments/1qurffs/your_we_miss_you_emails_dont_work_and_you_already/",
+        "selftext": "It'll be a long post, but if you're running a SaaS or subscription business and wondering why customers keep leaving, this might save you from burning money on the wrong solutions.\n\n\n\n**TL;DR:** Churn prediction = identifying customers likely to leave before they actually do. Most founders over-engineer it or build it too early. Under 500 customers? Just talk to them. The prediction is 20% of the work — having a real response playbook is the other 80%. Fix your product basics before adding fancy",
+        "created_utc": 1770123993.0,
+        "subreddit": "SaaS",
+        "permalink": "https://www.reddit.com/r/SaaS/comments/1qurffs/your_we_miss_you_emails_dont_work_and_you_already/"
+    },
+    {
+        "id": "1r76i2u",
+        "title": "[For Hire] Get a FREE demo for your next big website / webapp",
+        "score": 1,
+        "num_comments": 2,
+        "url": "https://www.reddit.com/r/freelance_forhire/comments/1r76i2u/for_hire_get_a_free_demo_for_your_next_big/",
+        "selftext": "Hey guys, hope you've been doing well.\n\nI’m Hari Krishnan, a web developer and designer working globally. I run a solo agency called DeathSpace, where I offer premium software solutions for my clients.\n\nI’ve been working with businesses since 2017, with 8 years of experience in design and 5 years in frontend web development.\n\nHere’s my portfolio with some of my past work for your viewing pleasure: [www.deathspacedesign.com](https://www.deathspacedesign.com/)\n\nFrom designing your sites to keeping",
+        "created_utc": 1771336189.0,
+        "subreddit": "freelance_forhire",
+        "permalink": "https://www.reddit.com/r/freelance_forhire/comments/1r76i2u/for_hire_get_a_free_demo_for_your_next_big/"
+    }
+]
