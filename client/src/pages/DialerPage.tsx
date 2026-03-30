@@ -46,6 +46,7 @@ export default function DialerPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   // New State Flow
   const [dialerSessionMode, setDialerSessionMode] = useState<DialerMode | null>(null);
@@ -64,6 +65,7 @@ export default function DialerPage() {
   const loadData = useCallback(async () => {
     if (!campaignId) return;
     setIsLoading(true);
+    setError(null);
     try {
       const [campaignRes, leadsRes, settingsRes] = await Promise.all([
         campaignsApi.get(campaignId),
@@ -103,6 +105,7 @@ export default function DialerPage() {
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to load campaign';
+      setError(message);
       toast.error(message);
     } finally {
       setIsLoading(false);
@@ -244,6 +247,18 @@ export default function DialerPage() {
     );
   }
   if (isLoading) return <div className="flex justify-center py-40"><Loader2 className="h-8 w-8 animate-spin text-emerald-500" /></div>;
+  
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center max-w-md mx-auto">
+        <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+        <h2 className="text-2xl font-bold text-white mb-2">Error Loading Dialer</h2>
+        <p className="text-zinc-400 mb-6">{error}</p>
+        <button onClick={() => navigate('/login')} className="bg-white/10 text-white px-6 py-2 rounded-xl transition-colors hover:bg-white/20 font-medium">Re-authenticate</button>
+      </div>
+    );
+  }
+
   if (leads.length === 0) return <div className="text-center py-40"><h2 className="text-2xl font-bold">All leads dialed!</h2></div>;
 
   // -- Pre-Dial Selection Screen --

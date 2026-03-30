@@ -69,7 +69,7 @@ router.post('/verify-telnyx', async (req: AuthenticatedRequest, res: Response, n
     });
 
     if (!telnyxRes.ok) {
-      return res.status(400).json({ success: false, message: 'Invalid Telnyx API Key' });
+      return res.status(400).json({ error: { code: 'invalid_key', message: 'Invalid Telnyx API Key' } });
     }
 
     // Save to user_settings if valid
@@ -83,7 +83,7 @@ router.post('/verify-telnyx', async (req: AuthenticatedRequest, res: Response, n
 
     if (error) throw new ApiError(500, error.message, 'db_error');
 
-    res.json({ success: true, message: 'Telnyx Key Validated and Saved' });
+    res.json({ data: { success: true, message: 'Telnyx Key Validated and Saved' } });
   } catch (error) {
     next(error);
   }

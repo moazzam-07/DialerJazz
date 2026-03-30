@@ -28,6 +28,10 @@ export const requireAuth = async (req: AuthenticatedRequest, res: Response, next
       throw new ApiError(401, 'Invalid or expired token.', 'invalid_token');
     }
 
+    if (decoded.exp && Date.now() >= decoded.exp * 1000) {
+      throw new ApiError(401, 'JWT expired', 'expired_token');
+    }
+
     req.user = { id: decoded.sub, email: decoded.email, role: decoded.role };
     req.db = insforgeClient; // Inject authenticated DB client for RLS
     next();
