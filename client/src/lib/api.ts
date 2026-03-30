@@ -182,6 +182,16 @@ export const leadsApi = {
     }),
 };
 
+// ============ Calls API ============
+
+export const callsApi = {
+  log: (payload: { lead_id: string; campaign_id: string; duration_seconds: number; status: string; disposition: string; notes?: string }) =>
+    apiFetch<{ data: unknown }>('/calls/log', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+};
+
 // ============ Settings API ============
 
 export interface UserSettings {

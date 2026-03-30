@@ -12,6 +12,8 @@ import settingsRouter from './routes/settings.js';
 import campaignsRouter from './routes/campaigns.js';
 import leadsRouter from './routes/leads.js';
 import statsRouter from './routes/stats.js';
+import callsRouter from './routes/calls.js';
+import telnyxRouter from './routes/telnyx.js';
 
 // In dev, load .env from parent dir. In production (Docker), env vars are injected.
 if (process.env.NODE_ENV !== 'production') {
@@ -67,6 +69,8 @@ app.use('/api/settings', settingsRouter);
 app.use('/api/campaigns', campaignsRouter);
 app.use('/api/leads', leadsRouter);
 app.use('/api/stats', statsRouter);
+app.use('/api/calls', callsRouter);
+app.use('/api/telnyx', telnyxRouter);
 
 // ─── Production: Serve Vite client as static files ─────────
 if (process.env.NODE_ENV === 'production') {

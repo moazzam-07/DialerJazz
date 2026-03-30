@@ -1,27 +1,27 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence, useAnimation } from 'framer-motion';
+import { motion, useAnimation } from 'framer-motion';
 import type { PanInfo } from 'framer-motion';
 import {
   Phone,
-  PhoneOff,
   Loader2,
   AlertCircle,
   ArrowLeft,
   User,
   MapPin,
   Mail,
-  Hash,
   Zap,
   MousePointerClick,
   Edit3
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { leadsApi, campaignsApi, settingsApi } from '@/lib/api';
+import { callsApi, leadsApi, campaignsApi, settingsApi } from '@/lib/api';
 import type { Lead, Campaign } from '@/lib/api';
 import { useTelnyxCall } from '@/hooks/useTelnyxCall';
 import type { CallState } from '@/hooks/useTelnyxCall';
-import AudioVisualizer from '@/components/AudioVisualizer';
+import CallControls from '@/components/CallControls';
+import InCallHUD from '@/components/InCallHUD';
+import DispositionOverlay from '@/components/DispositionOverlay';
 
 type DialerMode = 'power' | 'click';
 type Disposition = 'answered' | 'no_answer' | 'voicemail' | 'busy' | 'dnc';
@@ -35,7 +35,7 @@ const DISPOSITIONS: { value: Disposition; label: string; color: string; emoji: s
   { value: 'dnc',        label: 'Do Not Call', color: 'bg-red-500', emoji: '🚫' },
 ];
 
-const DTMF_KEYS = ['1','2','3','4','5','6','7','8','9','*','0','#'];
+
 
 export default function DialerPage() {
   const [searchParams] = useSearchParams();
@@ -135,13 +135,17 @@ export default function DialerPage() {
     setIsDisposing(true);
 
     try {
-      // Note: Backend takes enum, so mapping label to enum if needed, or just sending a string if relaxed
-      await leadsApi.updateDisposition(currentLead.id, 'answered'); 
-      // Update local notes / state
-      if (notes !== currentLead.notes) {
-        // Pseudo update call
-      }
+      const dispValue = DISPOSITIONS.find(d => d.label === dispositionLabel)?.value || 'answered';
       
+      // Log the full call event, duration, and disposition to our new calls API
+      await callsApi.log({
+        lead_id: currentLead.id,
+        campaign_id: campaign?.id || '',
+        duration_seconds: telnyx.callDuration || 0,
+        status: 'completed',
+        disposition: dispValue,
+        notes: notes 
+      });
       toast.success(`Marked as ${dispositionLabel}`);
       setShowDisposition(false);
 
@@ -362,110 +366,31 @@ export default function DialerPage() {
                  />
               </div>
 
-              {/* Static Physical Call Button - Pinned to bottom of card explicitly mapping UX flow */}
-              <div className="absolute bottom-6 left-6 right-6">
-                {!isInCall ? (
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); handleDial(); }}
-                    className="w-full h-14 bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-lg rounded-2xl flex items-center justify-center gap-3 shadow-[0_0_30px_rgba(16,185,129,0.3)] transition-all active:scale-95"
-                  >
-                    <Phone className="h-6 w-6" /> 
-                    {dialerSessionMode === 'power' ? 'Dial Now' : 'Click to Call'}
-                  </button>
-                ) : (
-                  <div className="w-full flex gap-2">
-                     <button onClick={(e) => { e.stopPropagation(); handleHangUp(); }} className="flex-1 h-14 bg-red-500 hover:bg-red-400 text-white font-bold text-lg rounded-2xl shadow-[0_0_30px_rgba(239,68,68,0.4)] flex items-center justify-center gap-2 active:scale-95 transition-all">
-                        <PhoneOff className="h-6 w-6" /> Hang Up
-                     </button>
-                     <button onClick={(e) => { e.stopPropagation(); setShowDTMF(!showDTMF); }} className="h-14 w-14 bg-black/40 border border-white/10 text-white rounded-2xl flex items-center justify-center active:scale-95 transition-all">
-                        <Hash className="h-6 w-6" />
-                     </button>
-                  </div>
-                )}
-              </div>
+              {/* Call Controls (Dial / Hang Up / DTMF Toggle) */}
+              <CallControls
+                callState={telnyx.callState}
+                dialerMode={dialerSessionMode!}
+                onDial={handleDial}
+                onHangUp={handleHangUp}
+                onToggleDTMF={() => setShowDTMF(!showDTMF)}
+              />
 
-              {/* In-Call HUD Overlay inside the card */}
-              <AnimatePresence>
-              {isInCall && (
-                <motion.div initial={{ opacity: 0}} animate={{ opacity: 1}} exit={{ opacity: 0}} className="absolute inset-x-6 top-32 bottom-[100px] backdrop-blur-xl bg-black/80 border border-white/10 rounded-2xl z-20 flex flex-col items-center justify-center p-6 text-center">
-                    <div className="h-4 w-4 rounded-full bg-emerald-500 animate-pulse mb-4 shadow-[0_0_20px_rgba(16,185,129,0.5)]" />
-                    <span className="text-sm font-bold tracking-widest uppercase text-emerald-400 mb-1">{telnyx.callState === 'trying' ? 'Dialing...' : telnyx.callState === 'ringing' ? 'Ringing...' : 'In Call'}</span>
-                    <span className="text-5xl font-extrabold text-white tabular-nums tracking-tighter mb-8">
-                       {Math.floor(telnyx.callDuration / 60).toString().padStart(2, '0')}:{(telnyx.callDuration % 60).toString().padStart(2, '0')}
-                    </span>
+              {/* In-Call HUD (Timer + Visualizer + DTMF) */}
+              <InCallHUD
+                callState={telnyx.callState}
+                callDuration={telnyx.callDuration}
+                remoteStream={telnyx.activeCall?.remoteStream || null}
+                showDTMF={showDTMF}
+                onSendDTMF={telnyx.sendDTMF}
+              />
 
-                    {/* Basic Visualizer embed securely */}
-                    <div className="w-full h-16 bg-white/5 rounded-xl border border-white/5 mb-8 flex justify-center items-center overflow-hidden">
-                       {telnyx.callState === 'active' && telnyx.activeCall?.remoteStream ? (
-                          <AudioVisualizer mediaStream={telnyx.activeCall.remoteStream} color="#10b981" />
-                       ) : (
-                          <div className="h-px w-full bg-white/20" />
-                       )}
-                    </div>
-
-                    {showDTMF && (
-                       <div className="grid grid-cols-3 gap-2 w-full">
-                         {DTMF_KEYS.map((k) => (
-                           <button key={k} onClick={() => telnyx.sendDTMF(k)} className="bg-white/10 py-3 rounded-lg font-bold hover:bg-white/20 active:scale-95 text-xl text-white transition-all">{k}</button>
-                         ))}
-                       </div>
-                    )}
-                </motion.div>
-              )}
-              </AnimatePresence>
-
-              {/* Post-Call Bottom Sheet Disposition Overlay */}
-              <AnimatePresence>
-              {showDisposition && (
-                 <motion.div 
-                    initial={{ y: '100%' }} 
-                    animate={{ y: 0 }} 
-                    exit={{ y: '100%', opacity: 0 }}
-                    transition={{ type: 'spring', bounce: 0, duration: 0.4 }}
-                    className="absolute inset-x-0 bottom-0 top-[30%] bg-[#1A1A1E] backdrop-blur-md rounded-t-[2.5rem] border-t-2 border-white/10 z-50 shadow-[0_-20px_50px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden"
-                 >
-                    {/* Pull handler decoration */}
-                    <div className="w-16 h-1.5 bg-white/20 rounded-full mx-auto mt-4 mb-6" />
-                    
-                    <div className="px-6 flex-1 flex flex-col">
-                       <h3 className="text-xl font-extrabold text-white mb-2 text-center">What's the outcome?</h3>
-                       <p className="text-zinc-400 text-sm text-center mb-8">Select disposition to save and continue.</p>
-
-                       <div className="space-y-4">
-                          {/* Primary Row */}
-                          <div className="grid grid-cols-3 gap-3">
-                             {DISPOSITIONS.filter(d => d.primary).map(d => (
-                               <button 
-                                 key={d.label}
-                                 onClick={() => handleDisposition(d.label)}
-                                 disabled={isDisposing}
-                                 className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 active:scale-95 transition-all disabled:opacity-50"
-                               >
-                                  <span className="text-2xl">{d.emoji}</span>
-                                  <span className="text-xs font-bold text-white text-center leading-tight">{d.label}</span>
-                               </button>
-                             ))}
-                          </div>
-                          <div className="h-px w-full bg-white/5 my-2" />
-                          {/* Secondary Row */}
-                          <div className="grid grid-cols-3 gap-3 flex-1 pb-6">
-                             {DISPOSITIONS.filter(d => !d.primary).map(d => (
-                               <button 
-                                 key={d.label}
-                                 onClick={() => handleDisposition(d.label)}
-                                 disabled={isDisposing}
-                                 className="flex flex-col items-center justify-center gap-2 p-3 rounded-2xl bg-transparent border border-white/5 hover:bg-white/5 active:scale-95 transition-all text-zinc-400 hover:text-white"
-                               >
-                                  <span className="text-xl opacity-70">{d.emoji}</span>
-                                  <span className="text-[10px] font-bold uppercase tracking-wider text-center">{d.label}</span>
-                               </button>
-                             ))}
-                          </div>
-                       </div>
-                    </div>
-                 </motion.div>
-              )}
-              </AnimatePresence>
+              {/* Post-Call Disposition Bottom Sheet */}
+              <DispositionOverlay
+                visible={showDisposition}
+                dispositions={DISPOSITIONS}
+                isDisposing={isDisposing}
+                onSelect={handleDisposition}
+              />
             </motion.div>
           ) : (
             <div className="text-center">
