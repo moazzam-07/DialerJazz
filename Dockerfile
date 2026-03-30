@@ -14,7 +14,7 @@ RUN npm ci
 
 # 2. Install + build CLIENT
 COPY client/package.json client/package-lock.json ./client/
-RUN cd client && npm ci
+RUN cd client && npm ci --legacy-peer-deps
 
 COPY client/ ./client/
 RUN cd client && npm run build
