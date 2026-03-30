@@ -119,8 +119,10 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3001;
-httpServer.listen(PORT, () => {
-  console.log(`🚀 Jazz Caller API running on http://localhost:${PORT}`);
-});
+if (process.env.NODE_ENV !== 'test') {
+  httpServer.listen(PORT, () => {
+    console.log(`🚀 Jazz Caller API running on http://localhost:${PORT}`);
+  });
+}
 
 export { app, io };
