@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { requireAuth, AuthenticatedRequest } from './middleware/auth.js';
@@ -11,7 +13,13 @@ import campaignsRouter from './routes/campaigns.js';
 import leadsRouter from './routes/leads.js';
 import statsRouter from './routes/stats.js';
 
-dotenv.config({ path: '../.env' });
+// In dev, load .env from parent dir. In production (Docker), env vars are injected.
+if (process.env.NODE_ENV !== 'production') {
+  dotenv.config({ path: '../.env' });
+}
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const allowedOrigins = [
   process.env.FRONTEND_URL,
@@ -34,7 +42,8 @@ app.use(cors({
   origin: allowedOrigins,
   credentials: true,
 }));
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Health check
 app.get('/api/health', (_req, res) => {
@@ -58,6 +67,18 @@ app.use('/api/settings', settingsRouter);
 app.use('/api/campaigns', campaignsRouter);
 app.use('/api/leads', leadsRouter);
 app.use('/api/stats', statsRouter);
+
+// ─── Production: Serve Vite client as static files ─────────
+if (process.env.NODE_ENV === 'production') {
+  // In Docker, client/dist is at ../../client/dist relative to server/dist/index.js
+  const clientDist = path.resolve(__dirname, '../../client/dist');
+  app.use(express.static(clientDist));
+
+  // SPA catch-all: any non-API route returns index.html
+  app.get('*', (_req, res) => {
+    res.sendFile(path.join(clientDist, 'index.html'));
+  });
+}
 
 // Centralized Error handler (must be last middleware)
 app.use(errorHandler);

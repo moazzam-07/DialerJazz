@@ -1,12 +1,102 @@
-import { useState, useRef, useEffect } from 'react';
-import { X, ChevronRight, Upload, Users, Loader2, CheckCircle2, ArrowLeft, Search } from 'lucide-react';
+import { useState, useRef, useEffect, useMemo } from 'react';
+import { X, ChevronRight, Upload, Users, Loader2, CheckCircle2, ArrowLeft, Search, FileSpreadsheet, ArrowRight, Columns3, Sparkles, AlertTriangle, Phone, User, Mail, Building2, MapPin, Globe, type LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import Papa from 'papaparse';
+import { motion, AnimatePresence } from 'framer-motion';
 import { campaignsApi, leadsApi, type Lead } from '@/lib/api';
 import { DialerModeSelect } from '@/components/ui/dialer-mode-select';
+import { AnimatedSelect, type AnimatedSelectOption } from '@/components/AnimatedSelect';
 
-type Step = 'details' | 'source' | 'import_crm' | 'upload_csv' | 'success';
+type Step = 'details' | 'source' | 'import_crm' | 'upload_csv' | 'map_csv' | 'success';
 
+// ─── System fields that Jazz Caller supports ───────────────────
+interface SystemField {
+  key: string;
+  label: string;
+  required: boolean;
+  icon: LucideIcon;
+  patterns: string[]; // fuzzy match patterns
+}
+
+const SYSTEM_FIELDS: SystemField[] = [
+  { key: 'phone',      label: 'Phone',      required: true,  icon: Phone,     patterns: ['phone', 'mobile', 'cell', 'tel', 'contact_number', 'telephone', 'contact'] },
+  { key: 'first_name', label: 'First Name', required: false, icon: User,      patterns: ['first_name', 'firstname', 'fname', 'first', 'given_name'] },
+  { key: 'last_name',  label: 'Last Name',  required: false, icon: User,      patterns: ['last_name', 'lastname', 'lname', 'last', 'surname', 'family_name'] },
+  { key: 'email',      label: 'Email',      required: false, icon: Mail,      patterns: ['email', 'email_address', 'e_mail', 'mail'] },
+  { key: 'company',    label: 'Company',    required: false, icon: Building2, patterns: ['company', 'business', 'org', 'organization', 'account_name', 'employer', 'company_name'] },
+  { key: 'city',       label: 'City',       required: false, icon: MapPin,    patterns: ['city', 'town', 'locality'] },
+  { key: 'state',      label: 'State',      required: false, icon: MapPin,    patterns: ['state', 'province', 'region'] },
+  { key: 'website',    label: 'Website',    required: false, icon: Globe,     patterns: ['website', 'url', 'web', 'site', 'domain'] },
+];
+
+const SKIP_VALUE = '__skip__';
+
+// ─── Fuzzy Match Engine ────────────────────────────────────────
+function fuzzyMatch(csvHeader: string, patterns: string[]): number {
+  const h = csvHeader.toLowerCase().replace(/[\s\-_]+/g, '');
+  for (const p of patterns) {
+    const clean = p.replace(/[\s\-_]+/g, '');
+    if (h === clean) return 1.0;           // exact
+    if (h.includes(clean)) return 0.8;     // substring
+    if (clean.includes(h)) return 0.6;     // reverse substring
+  }
+  // Levenshtein-like similarity for close matches
+  for (const p of patterns) {
+    const clean = p.replace(/[\s\-_]+/g, '');
+    const maxLen = Math.max(h.length, clean.length);
+    if (maxLen === 0) continue;
+    let common = 0;
+    for (let i = 0; i < Math.min(h.length, clean.length); i++) {
+      if (h[i] === clean[i]) common++;
+    }
+    const ratio = common / maxLen;
+    if (ratio > 0.7) return ratio * 0.5;
+  }
+  return 0;
+}
+
+function autoMapColumns(csvHeaders: string[]): Record<string, string> {
+  const map: Record<string, string> = {};
+  const usedCsvHeaders = new Set<string>();
+
+  // For each system field, find the best matching CSV header
+  for (const field of SYSTEM_FIELDS) {
+    let bestScore = 0;
+    let bestHeader = '';
+
+    for (const h of csvHeaders) {
+      if (usedCsvHeaders.has(h)) continue;
+      const score = fuzzyMatch(h, field.patterns);
+      if (score > bestScore) {
+        bestScore = score;
+        bestHeader = h;
+      }
+    }
+
+    if (bestScore >= 0.4 && bestHeader) {
+      map[field.key] = bestHeader;
+      usedCsvHeaders.add(bestHeader);
+    } else {
+      map[field.key] = SKIP_VALUE;
+    }
+  }
+
+  // Special fallback: if no first_name or last_name mapped, look for a generic "name" column
+  if (map['first_name'] === SKIP_VALUE && map['last_name'] === SKIP_VALUE) {
+    const nameCol = csvHeaders.find(h => {
+      const lc = h.toLowerCase().replace(/[\s\-_]+/g, '');
+      return lc === 'name' || lc === 'fullname' || lc === 'contactperson' || lc === 'contactname';
+    });
+    if (nameCol) {
+      map['first_name'] = nameCol;  // We'll split it during import
+      map['__name_split__'] = 'true';
+    }
+  }
+
+  return map;
+}
+
+// ─── Props ─────────────────────────────────────────────────────
 interface Props {
   isOpen: boolean;
   onClose: () => void;
@@ -15,12 +105,10 @@ interface Props {
 
 export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Props) {
   const [step, setStep] = useState<Step>('details');
-  const [campaignId, setCampaignId] = useState<string | null>(null);
   
   // Details State
   const [name, setName] = useState('');
   const [dialerMode, setDialerMode] = useState('preview');
-  const [isCreating, setIsCreating] = useState(false);
 
   // CRM Import State
   const [crmLeads, setCrmLeads] = useState<Lead[]>([]);
@@ -35,38 +123,67 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
+  // ─── NEW: Column Mapping State ───────────────────────────────
+  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
+  const [columnMap, setColumnMap] = useState<Record<string, string>>({});
+  const [csvPreviewRows, setCsvPreviewRows] = useState<Record<string, any>[]>([]);
+  const [isParsing, setIsParsing] = useState(false);
+
   // Reset state when modal opens
   useEffect(() => {
     if (isOpen) {
       setStep('details');
-      setCampaignId(null);
       setName('');
       setDialerMode('preview');
       setSelectedLeadIds(new Set());
       setCsvFile(null);
       setUploadProgress(0);
+      setCsvHeaders([]);
+      setColumnMap({});
+      setCsvPreviewRows([]);
     }
   }, [isOpen]);
 
+  // ALL hooks MUST be called before any early return (Rules of Hooks)
+  const csvHeaderOptions: AnimatedSelectOption[] = useMemo(() => {
+    return [
+      { value: SKIP_VALUE, label: '— Skip this field —' },
+      ...csvHeaders.map(h => ({ value: h, label: h }))
+    ];
+  }, [csvHeaders]);
+
+  // Confidence indicators for each mapping
+  const mappingConfidence = useMemo(() => {
+    const confidence: Record<string, 'high' | 'medium' | 'low' | 'none'> = {};
+    for (const field of SYSTEM_FIELDS) {
+      const mappedTo = columnMap[field.key];
+      if (!mappedTo || mappedTo === SKIP_VALUE) {
+        confidence[field.key] = 'none';
+        continue;
+      }
+      const score = fuzzyMatch(mappedTo, field.patterns);
+      if (score >= 0.8) confidence[field.key] = 'high';
+      else if (score >= 0.5) confidence[field.key] = 'medium';
+      else confidence[field.key] = 'low';
+    }
+    return confidence;
+  }, [columnMap]);
+
+  // Count mapped fields
+  const mappedCount = useMemo(() => {
+    return Object.values(columnMap).filter(v => v && v !== SKIP_VALUE).length;
+  }, [columnMap]);
+
+  const isPhoneMapped = columnMap['phone'] && columnMap['phone'] !== SKIP_VALUE;
+
   if (!isOpen) return null;
 
-  const handleCreateDetails = async (e: React.FormEvent) => {
+  // ─── Handlers ────────────────────────────────────────────────
+
+  const handleCreateDetails = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return toast.error('Campaign name required');
-    
-    setIsCreating(true);
-    try {
-      const { data } = await campaignsApi.create({ name: name.trim(), dialer_mode: dialerMode });
-      // Depending on API response structure, usually data is the created campaign or data[0] if array
-      const createdId = Array.isArray(data) ? data[0].id : (data as any).id;
-      setCampaignId(createdId);
-      toast.success('Campaign created. Now add leads!');
-      setStep('source');
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to create campaign');
-    } finally {
-      setIsCreating(false);
-    }
+    setStep('source');
   };
 
   const handleFetchCrmLeads = async () => {
@@ -84,12 +201,13 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
   };
 
   const handleAssignCrmLeads = async () => {
-    if (!campaignId) return;
     if (selectedLeadIds.size === 0) return toast.error('Select at least one lead');
     
     setIsAssigning(true);
     try {
-      // Direct call to the assign endpoint we created earlier
+      const { data } = await campaignsApi.create({ name: name.trim(), dialer_mode: dialerMode });
+      const newCampaignId = Array.isArray(data) ? data[0].id : (data as any).id;
+
       const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/leads/assign`, {
         method: 'POST',
         headers: {
@@ -97,7 +215,7 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`
         },
         body: JSON.stringify({
-          campaign_id: campaignId,
+          campaign_id: newCampaignId,
           lead_ids: Array.from(selectedLeadIds)
         })
       });
@@ -125,99 +243,248 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
     }
   };
 
-  const processCsvAndUpload = () => {
-    if (!csvFile || !campaignId) return;
+  // ─── NEW: Parse headers only (preview pass) ──────────────────
+  const handleParseHeaders = () => {
+    if (!csvFile) return;
+    setIsParsing(true);
+
+    Papa.parse(csvFile, {
+      header: true,
+      skipEmptyLines: true,
+      preview: 5, // Read first 5 rows for header extraction + preview
+      transformHeader: (header: string) => header.trim(),
+      complete: (results: Papa.ParseResult<Record<string, unknown>>) => {
+        const headers = results.meta.fields || [];
+        if (headers.length === 0) {
+          toast.error('No columns found in this CSV. Check the file format.');
+          setIsParsing(false);
+          return;
+        }
+
+        setCsvHeaders(headers);
+        setCsvPreviewRows(results.data.slice(0, 3) as Record<string, any>[]);
+
+        // Run the fuzzy-match auto-mapper
+        const autoMap = autoMapColumns(headers);
+        setColumnMap(autoMap);
+
+        setIsParsing(false);
+        setStep('map_csv');
+
+        // Notify user about auto-mapping
+        const autoMapped = Object.values(autoMap).filter(v => v !== SKIP_VALUE).length;
+        if (autoMapped > 0) {
+          toast.success(`Smart-matched ${autoMapped} field${autoMapped > 1 ? 's' : ''} automatically!`, {
+            icon: '✨',
+          });
+        }
+      },
+      error: (error: Error) => {
+        toast.error(`CSV Error: ${error.message}`);
+        setIsParsing(false);
+      }
+    });
+  };
+
+  // ─── NEW: Final import using confirmed mappings ──────────────
+  const handleConfirmAndImport = () => {
+    if (!csvFile) return;
+    if (!isPhoneMapped) {
+      toast.error('Phone number mapping is required!');
+      return;
+    }
+
     setIsUploading(true);
     setUploadProgress(10);
 
     Papa.parse(csvFile, {
       header: true,
       skipEmptyLines: true,
-      transformHeader: (header: string) => header.trim().toLowerCase().replace(/\s+/g, '_'),
+      transformHeader: (header: string) => header.trim(),
       complete: async (results: Papa.ParseResult<Record<string, unknown>>) => {
-        setUploadProgress(40);
+        setUploadProgress(30);
         
         try {
-          const rawRows = results.data;
-          
-          // Map to standard lead fields
-          // Users might have different headers, so we do basic guessing
-          const parsedLeads = rawRows.map(row => {
-            const phone = row.phone || row.phone_number || row.mobile || row.contact || '';
-            const email = row.email || row.email_address || '';
-            const first_name = row.first_name || row.firstname || (typeof row.name === 'string' ? row.name.split(' ')[0] : '') || '';
-            const last_name = row.last_name || row.lastname || (typeof row.name === 'string' ? row.name.split(' ').slice(1).join(' ') : '') || '';
-            const company = row.company || row.company_name || row.business || '';
+          const rawRows = results.data as Record<string, any>[];
+          const uniquePhones = new Set<string>();
+          const parsedLeads: Omit<Lead, 'id' | 'campaign_id' | 'created_at'>[] = [];
 
-            return {
-              phone: String(phone).replace(/[^0-9+]/g, ''),
-              email: String(email),
-              first_name: String(first_name),
-              last_name: String(last_name),
-              company: String(company),
-              city: String(row.city || ''),
-              state: String(row.state || ''),
+          // Determine if we need to split a single "name" column
+          const needsNameSplit = columnMap['__name_split__'] === 'true';
+          
+          for (const row of rawRows) {
+            // Use EXPLICIT user-confirmed mappings (not fuzzy guessing)
+            const getField = (sysKey: string): string => {
+              const csvCol = columnMap[sysKey];
+              if (!csvCol || csvCol === SKIP_VALUE) return '';
+              return String(row[csvCol] || '').trim();
+            };
+
+            const rawPhone = getField('phone');
+            const cleanPhone = rawPhone.replace(/[^0-9+]/g, '');
+            
+            // Skip rows without viable phone numbers, and deduplicate
+            if (cleanPhone.length < 7 || uniquePhones.has(cleanPhone)) continue;
+            uniquePhones.add(cleanPhone);
+
+            let first_name = getField('first_name');
+            let last_name = getField('last_name');
+
+            // If we detected a "full name" column, split it
+            if (needsNameSplit && first_name && !last_name) {
+              const parts = first_name.split(' ');
+              first_name = parts[0] || '';
+              last_name = parts.slice(1).join(' ') || '';
+            }
+
+            const email = getField('email');
+            const company = getField('company');
+            const city = getField('city');
+            const state = getField('state');
+            const website = getField('website');
+
+            // Collect unmapped columns into custom_fields
+            const mappedCsvCols = new Set(
+              Object.values(columnMap).filter(v => v && v !== SKIP_VALUE && v !== 'true')
+            );
+            const custom_fields: Record<string, any> = {};
+            for (const key of Object.keys(row)) {
+              if (!mappedCsvCols.has(key)) {
+                const val = row[key];
+                if (val !== undefined && val !== null && String(val).trim() !== '') {
+                  custom_fields[key] = val;
+                }
+              }
+            }
+
+            parsedLeads.push({
+              phone: cleanPhone,
+              email,
+              first_name,
+              last_name,
+              company,
+              city,
+              state,
+              website,
               status: 'new',
               priority: 0,
-              // Put everything else in custom fields to avoid column errors
-              custom_fields: Object.keys(row)
-                .filter(k => !['phone','mobile','email','first_name','last_name','name','company','city','state'].includes(k))
-                .reduce((obj, key) => { obj[key] = row[key]; return obj; }, {} as Record<string,any>)
-            };
-          }).filter(l => l.phone.length > 5); // Must have a reasonable phone number
-
-          if (parsedLeads.length === 0) {
-            throw new Error('No valid rows with phone numbers found in CSV.');
+              custom_fields: Object.keys(custom_fields).length > 0 ? custom_fields : undefined,
+            } as any);
           }
 
-          setUploadProgress(70);
+          if (parsedLeads.length === 0) {
+            throw new Error('No valid rows with phone numbers found. Check your Phone mapping.');
+          }
 
-          // Submit to Bulk API
-          await leadsApi.bulkUpload(campaignId, parsedLeads);
+          setUploadProgress(60);
+
+          // 1. Create the campaign
+          const { data } = await campaignsApi.create({ name: name.trim(), dialer_mode: dialerMode });
+          const newCampaignId = Array.isArray(data) ? data[0].id : (data as any).id;
+
+          setUploadProgress(80);
+
+          // 2. Submit to Bulk API
+          await leadsApi.bulkUpload(newCampaignId, parsedLeads);
           
           setUploadProgress(100);
-          toast.success(`Imported ${parsedLeads.length} leads successfully!`);
+          toast.success(`Campaign created with ${parsedLeads.length} leads!`);
           setStep('success');
           onCreated();
 
         } catch (err: any) {
-          toast.error(err.message || 'Failed to process CSV');
+          toast.error(err.message || 'Failed to import leads');
         } finally {
           setIsUploading(false);
         }
       },
       error: (error: Error) => {
-        toast.error(`CSV Parsing Error: ${error.message}`);
+        toast.error(`CSV Error: ${error.message}`);
         setIsUploading(false);
       }
     });
+  };
+
+  // ─── Step title helper ───────────────────────────────────────
+  const getStepTitle = () => {
+    switch (step) {
+      case 'details': return 'Create New Campaign';
+      case 'source': return 'Add Leads';
+      case 'import_crm': return 'Select CRM Leads';
+      case 'upload_csv': return 'Upload Spreadsheet';
+      case 'map_csv': return 'Map Your Columns';
+      case 'success': return 'Campaign Ready!';
+    }
+  };
+
+  const getStepSubtitle = () => {
+    switch (step) {
+      case 'map_csv': return 'Verify how your CSV columns map to Jazz Caller fields';
+      default: return undefined;
+    }
+  };
+
+  const handleBack = () => {
+    switch (step) {
+      case 'source': setStep('details'); break;
+      case 'import_crm': setStep('source'); break;
+      case 'upload_csv': setStep('source'); break;
+      case 'map_csv': setStep('upload_csv'); break;
+    }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={step === 'success' ? onClose : undefined} />
       
-      <div className="relative bg-[#1A1A1E] border border-white/10 rounded-2xl p-6 w-full max-w-2xl mx-4 shadow-2xl animate-in fade-in zoom-in-95 duration-200 overflow-hidden flex flex-col max-h-[90vh]">
+      <motion.div 
+        className={`relative bg-[#1A1A1E] border border-white/10 rounded-2xl p-6 w-full mx-4 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] transition-all duration-300 ${step === 'map_csv' ? 'max-w-5xl' : 'max-w-2xl'}`}
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.2 }}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between mb-6 shrink-0">
+        <div className="flex items-center justify-between mb-4 shrink-0">
           <div className="flex items-center gap-3">
             {step !== 'details' && step !== 'success' && (
-              <button onClick={() => step.includes('import') || step.includes('upload') ? setStep('source') : null} className="text-zinc-400 hover:text-white transition-colors">
+              <button onClick={handleBack} className="text-zinc-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/5">
                 <ArrowLeft className="h-5 w-5" />
               </button>
             )}
-            <h2 className="text-xl font-bold text-white">
-              {step === 'details' ? 'Create New Campaign' : 
-               step === 'source' ? 'Add Leads' : 
-               step === 'import_crm' ? 'Select CRM Leads' :
-               step === 'upload_csv' ? 'Upload Spreadsheets' : 
-               'Campaign Ready!'}
-            </h2>
+            <div>
+              <h2 className="text-xl font-bold text-white">{getStepTitle()}</h2>
+              {getStepSubtitle() && (
+                <p className="text-sm text-zinc-400 mt-0.5">{getStepSubtitle()}</p>
+              )}
+            </div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors">
             <X className="h-5 w-5" />
           </button>
         </div>
+
+        {/* Step Progress Indicator */}
+        {step !== 'success' && (
+          <div className="flex items-center gap-1 mb-6 shrink-0">
+            {['details', 'source', 'upload_csv', 'map_csv'].map((s, i) => {
+              const steps: Step[] = ['details', 'source', 'upload_csv', 'map_csv'];
+              const currentIdx = steps.indexOf(step);
+              const thisIdx = i;
+              const isActive = thisIdx <= currentIdx;
+              const isCurrent = s === step;
+              // Adjust for CRM path
+              if ((step === 'import_crm') && (s === 'upload_csv' || s === 'map_csv')) return null;
+              
+              return (
+                <div key={s} className="flex items-center gap-1 flex-1">
+                  <div className={`h-1.5 rounded-full flex-1 transition-all duration-500 ${
+                    isActive ? 'bg-emerald-500' : 'bg-white/10'
+                  } ${isCurrent ? 'bg-emerald-400 shadow-lg shadow-emerald-500/30' : ''}`} />
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Step 1: Details */}
         {step === 'details' && (
@@ -243,10 +510,10 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
             <div className="flex justify-end pt-4 border-t border-white/5">
               <button 
                 type="submit" 
-                disabled={isCreating || !name.trim()}
+                disabled={!name.trim()}
                 className="bg-emerald-500 hover:bg-emerald-400 text-black px-6 py-2.5 rounded-xl font-semibold flex items-center gap-2 disabled:opacity-50 transition-colors"
               >
-                {isCreating ? <Loader2 className="h-4 w-4 animate-spin" /> : <span>Continue <ChevronRight className="h-4 w-4 inline" /></span>}
+                <span>Continue <ChevronRight className="h-4 w-4 inline" /></span>
               </button>
             </div>
           </form>
@@ -371,36 +638,227 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
                 {csvFile ? csvFile.name : 'Click to upload your CSV'}
               </p>
               <p className="text-sm text-zinc-500">
-                Ensure it has a "Phone" or "Mobile" column.
+                Supports exports from Apollo, ZoomInfo, Uplead, and any standard CSV.
               </p>
             </div>
             
             {csvFile && (
-              <div className="bg-black/30 p-4 rounded-xl border border-white/5 space-y-4">
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-black/30 p-4 rounded-xl border border-white/5 space-y-4"
+              >
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-zinc-300">File Selected: {csvFile.name}</span>
+                  <div className="flex items-center gap-3">
+                    <FileSpreadsheet className="h-5 w-5 text-emerald-500" />
+                    <span className="text-sm text-zinc-300 font-medium">{csvFile.name}</span>
+                  </div>
                   <span className="text-xs text-zinc-500">{(csvFile.size / 1024).toFixed(1)} KB</span>
                 </div>
                 
-                {isUploading && (
-                  <div className="w-full bg-zinc-800 rounded-full h-2 overflow-hidden">
-                    <div className="bg-emerald-500 h-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
-                  </div>
-                )}
-                
                 <div className="flex justify-end">
                   <button 
-                    onClick={processCsvAndUpload}
-                    disabled={isUploading}
+                    onClick={handleParseHeaders}
+                    disabled={isParsing}
                     className="bg-emerald-500 hover:bg-emerald-400 text-black px-6 py-2.5 rounded-xl font-semibold flex items-center gap-2 disabled:opacity-50 transition-colors w-full justify-center"
                   >
-                    {isUploading ? (
-                      <><Loader2 className="h-4 w-4 animate-spin" /> Processing...</>
+                    {isParsing ? (
+                      <><Loader2 className="h-4 w-4 animate-spin" /> Analyzing columns...</>
                     ) : (
-                      <>Read & Import CSV</>
+                      <>
+                        <Columns3 className="h-4 w-4" />
+                        Analyze & Map Columns
+                        <ArrowRight className="h-4 w-4" />
+                      </>
                     )}
                   </button>
                 </div>
+              </motion.div>
+            )}
+          </div>
+        )}
+
+        {/* ═══════════════════════════════════════════════════════
+            Step 3c: MAP COLUMNS — Two-panel layout (mapping | preview)
+            ═══════════════════════════════════════════════════════ */}
+        {step === 'map_csv' && (
+          <div className="flex flex-col gap-4 overflow-hidden">
+            {/* Status bar */}
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-center justify-between bg-black/30 rounded-xl px-4 py-3 border border-white/5"
+            >
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-emerald-400 flex-shrink-0" />
+                <span className="text-sm text-zinc-300">
+                  <span className="text-emerald-400 font-semibold">{mappedCount}</span> of {SYSTEM_FIELDS.length} fields mapped
+                </span>
+              </div>
+              <span className="text-xs text-zinc-500">{csvHeaders.length} CSV columns detected</span>
+            </motion.div>
+
+            {/* Phone Required Warning */}
+            {!isPhoneMapped && (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-2.5"
+              >
+                <AlertTriangle className="h-4 w-4 text-red-400 flex-shrink-0" />
+                <span className="text-sm text-red-300">Phone mapping is required to import leads.</span>
+              </motion.div>
+            )}
+
+            {/* ─── Two-Panel Layout: Mapping (left) | Preview (right) on desktop ─── */}
+            <div className="flex flex-col lg:flex-row gap-4 flex-1 min-h-0">
+
+              {/* LEFT PANEL: Mapping Grid */}
+              <div className="flex-1 flex flex-col min-h-0 min-w-0">
+                <div className="overflow-y-auto flex-1 pr-1 space-y-2 max-h-[400px] lg:max-h-none" style={{ scrollbarWidth: 'thin', scrollbarColor: '#3f3f46 transparent' }}>
+                  <AnimatePresence mode="wait">
+                    {SYSTEM_FIELDS.map((field, index) => {
+                      const confidence = mappingConfidence[field.key];
+                      const FieldIcon = field.icon;
+                      const confidenceColor = {
+                        high: 'bg-emerald-500/15 border-emerald-500/30',
+                        medium: 'bg-amber-500/10 border-amber-500/20', 
+                        low: 'bg-orange-500/10 border-orange-500/20',
+                        none: 'bg-white/[0.03] border-white/5',
+                      }[confidence];
+                      const confidenceDot = {
+                        high: 'bg-emerald-400',
+                        medium: 'bg-amber-400',
+                        low: 'bg-orange-400',
+                        none: 'bg-zinc-600',
+                      }[confidence];
+
+                      return (
+                        <motion.div
+                          key={field.key}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: index * 0.04 }}
+                          className={`flex items-center gap-3 rounded-xl px-4 py-3 border transition-all hover:bg-white/[0.04] ${confidenceColor}`}
+                        >
+                          {/* System field label */}
+                          <div className="flex items-center gap-2.5 min-w-[130px]">
+                            <FieldIcon className="h-4 w-4 text-zinc-400 flex-shrink-0" />
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-sm font-medium text-white">{field.label}</span>
+                              {field.required && (
+                                <span className="text-[10px] font-bold text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded">REQ</span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Arrow */}
+                          <ArrowRight className="h-3.5 w-3.5 text-zinc-500 flex-shrink-0" />
+
+                          {/* AnimatedSelect Dropdown */}
+                          <div className="flex-1 min-w-0">
+                            <AnimatedSelect
+                              options={csvHeaderOptions}
+                              value={columnMap[field.key] || SKIP_VALUE}
+                              onChange={(val) => {
+                                setColumnMap(prev => ({ ...prev, [field.key]: val }));
+                              }}
+                              placeholder="Select CSV column..."
+                            />
+                          </div>
+
+                          {/* Confidence dot */}
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <div className={`h-2 w-2 rounded-full ${confidenceDot}`} />
+                            <span className="text-[10px] uppercase tracking-wider text-zinc-500">{confidence}</span>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </AnimatePresence>
+                </div>
+              </div>
+
+              {/* RIGHT PANEL: Data Preview (beside on desktop, below on mobile) */}
+              {csvPreviewRows.length > 0 && (
+                <motion.div 
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="lg:w-[380px] flex-shrink-0 bg-black/30 rounded-xl border border-white/5 overflow-hidden flex flex-col"
+                >
+                  <div className="px-4 py-2.5 border-b border-white/5 flex items-center gap-2 shrink-0">
+                    <FileSpreadsheet className="h-3.5 w-3.5 text-zinc-400" />
+                    <span className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Data Preview</span>
+                    <span className="text-xs text-zinc-600">• First 3 rows</span>
+                  </div>
+                  <div className="overflow-auto flex-1" style={{ scrollbarWidth: 'thin', scrollbarColor: '#3f3f46 transparent' }}>
+                    <table className="w-full text-xs">
+                      <thead className="sticky top-0 bg-[#111113]">
+                        <tr className="border-b border-white/5">
+                          {SYSTEM_FIELDS.filter(f => columnMap[f.key] && columnMap[f.key] !== SKIP_VALUE).map(f => {
+                            const Icon = f.icon;
+                            return (
+                              <th key={f.key} className="px-3 py-2 text-left text-zinc-400 font-medium whitespace-nowrap">
+                                <span className="inline-flex items-center gap-1"><Icon className="h-3 w-3" /> {f.label}</span>
+                              </th>
+                            );
+                          })}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {csvPreviewRows.map((row, rowIdx) => (
+                          <tr key={rowIdx} className="border-b border-white/5 last:border-0 hover:bg-white/[0.02]">
+                            {SYSTEM_FIELDS.filter(f => columnMap[f.key] && columnMap[f.key] !== SKIP_VALUE).map(f => (
+                              <td key={f.key} className="px-3 py-2 text-zinc-300 whitespace-nowrap max-w-[140px] truncate">
+                                {String(row[columnMap[f.key]] || '—')}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </motion.div>
+              )}
+            </div>
+
+            {/* Footer: Change file & Import */}
+            <div className="flex items-center justify-between pt-3 border-t border-white/5 shrink-0">
+              <button
+                onClick={() => setStep('upload_csv')}
+                className="text-sm text-zinc-400 hover:text-white transition-colors flex items-center gap-1 cursor-pointer"
+              >
+                <ArrowLeft className="h-4 w-4" /> Change file
+              </button>
+              <button 
+                onClick={handleConfirmAndImport}
+                disabled={!isPhoneMapped || isUploading}
+                className="bg-emerald-500 hover:bg-emerald-400 text-black px-6 py-2.5 rounded-xl font-semibold flex items-center gap-2 disabled:opacity-50 transition-colors cursor-pointer"
+              >
+                {isUploading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Importing... {uploadProgress}%
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="h-4 w-4" />
+                    Confirm & Import
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Progress bar during import */}
+            {isUploading && (
+              <div className="w-full bg-zinc-800 rounded-full h-1.5 overflow-hidden">
+                <motion.div 
+                  className="bg-emerald-500 h-full"
+                  initial={{ width: '0%' }}
+                  animate={{ width: `${uploadProgress}%` }}
+                  transition={{ duration: 0.3 }}
+                />
               </div>
             )}
           </div>
@@ -409,10 +867,15 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
         {/* Step 4: Success */}
         {step === 'success' && (
           <div className="text-center py-10">
-            <div className="inline-flex h-20 w-20 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-500 mb-6 relative">
+            <motion.div 
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: 'spring', stiffness: 200, damping: 15 }}
+              className="inline-flex h-20 w-20 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-500 mb-6 relative"
+            >
               <div className="absolute inset-0 rounded-full bg-emerald-500/20 animate-ping" />
               <CheckCircle2 className="h-10 w-10" />
-            </div>
+            </motion.div>
             <h2 className="text-2xl font-bold text-white mb-2">Campaign Ready!</h2>
             <p className="text-zinc-400 mb-8 max-w-sm mx-auto">
               Your leads have been successfully mapped and the campaign is queued for dialing.
@@ -426,7 +889,7 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
           </div>
         )}
 
-      </div>
+      </motion.div>
     </div>
   );
 }

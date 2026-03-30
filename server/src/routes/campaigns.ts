@@ -84,8 +84,43 @@ router.patch('/:id/status', async (req: AuthenticatedRequest, res: Response, nex
       .single();
 
     if (error) throw new ApiError(500, error.message, 'db_error');
-
     res.json({ data });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch('/:id/rename', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const renameSchema = z.object({ name: z.string().min(1).max(100) });
+    const { name } = renameSchema.parse(req.body);
+
+    const { data, error } = await req.db!
+      .database.from('campaigns')
+      .update({ name, updated_at: new Date().toISOString() })
+      .eq('id', req.params.id)
+      .eq('user_id', req.user.id)
+      .select()
+      .single();
+
+    if (error) throw new ApiError(500, error.message, 'db_error');
+    res.json({ data });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.delete('/:id', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    // Delete the campaign (Supabase cascade deletes leads if configured, otherwise we just delete campaign)
+    const { error } = await req.db!
+      .database.from('campaigns')
+      .delete()
+      .eq('id', req.params.id)
+      .eq('user_id', req.user.id);
+
+    if (error) throw new ApiError(500, error.message, 'db_error');
+    res.status(204).send();
   } catch (error) {
     next(error);
   }

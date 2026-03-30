@@ -72,6 +72,10 @@ async function apiFetch<T = unknown>(
     throw new Error(errorBody?.error?.message || `API Error: ${response.status}`);
   }
 
+  if (response.status === 204) {
+    return {} as any;
+  }
+
   return response.json();
 }
 
@@ -109,6 +113,17 @@ export const campaignsApi = {
       method: 'PATCH',
       body: JSON.stringify({ status }),
     }),
+
+  rename: (id: string, name: string) =>
+    apiFetch<Campaign>(`/campaigns/${id}/rename`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name }),
+    }),
+
+  delete: (id: string) =>
+    apiFetch<void>(`/campaigns/${id}`, {
+      method: 'DELETE',
+    }),
 };
 
 // ============ Leads API ============
@@ -131,6 +146,7 @@ export interface Lead {
   status: string;
   priority: number;
   tags?: string[];
+  notes?: string;
   custom_fields?: Record<string, unknown>;
   created_at: string;
 }

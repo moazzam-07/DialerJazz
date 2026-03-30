@@ -111,7 +111,12 @@ export default function CampaignsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {filteredCampaigns.map(campaign => (
-            <CampaignCard key={campaign.id} campaign={campaign} onStartDialing={(id) => navigate(`/dialer?campaign=${id}`)} />
+            <CampaignCard 
+              key={campaign.id} 
+              campaign={campaign} 
+              onStartDialing={(id) => navigate(`/dialer?campaign=${id}`)} 
+              onUpdated={fetchCampaigns} 
+            />
           ))}
         </div>
       )}

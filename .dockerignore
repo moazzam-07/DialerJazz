@@ -1,0 +1,15 @@
+node_modules
+client/node_modules
+server/node_modules
+client/dist
+server/dist
+.git
+.env
+.env.*
+*.log
+.agent
+_telnyx_ref
+demo_components
+photos_examples
+plans
+reddit_*.json

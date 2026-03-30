@@ -57,7 +57,13 @@ router.post('/bulk', async (req: AuthenticatedRequest, res: Response, next: Next
   try {
     const body = bulkLeadsSchema.parse(req.body);
 
-    const leadsToUpsert = body.leads.map(lead => ({
+    // Deduplicate leads by phone before interacting with DB
+    const uniqueLeads = new Map();
+    for (const l of body.leads) {
+      uniqueLeads.set(l.phone, l);
+    }
+
+    const leadsToUpsert = Array.from(uniqueLeads.values()).map(lead => ({
       ...lead,
       user_id: req.user.id
     }));
