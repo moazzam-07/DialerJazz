@@ -217,3 +217,13 @@ export const settingsApi = {
       body: JSON.stringify({ apiKey }),
     }),
 };
+
+// ============ Telnyx API ============
+
+export const telnyxApi = {
+  /** Fetch a short-lived WebRTC JWT token from the backend */
+  getToken: () =>
+    apiFetch<{ token: string }>('/telnyx/token', {
+      method: 'POST',
+    }),
+};

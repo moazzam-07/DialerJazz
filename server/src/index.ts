@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -64,12 +65,34 @@ app.get('/api/me', requireAuth, (req: AuthenticatedRequest, res, next) => {
   }
 });
 
+// ─── Rate Limiting ─────────────────────────────────────────
+// General: 100 requests per minute per IP
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: { code: 'rate_limited', message: 'Too many requests. Please try again later.' } },
+});
+
+// Strict: 10 requests per minute for expensive operations
+const strictLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: { code: 'rate_limited', message: 'Too many requests for this endpoint.' } },
+});
+
+app.use('/api', apiLimiter);
+
 // API Routes
 app.use('/api/settings', settingsRouter);
 app.use('/api/campaigns', campaignsRouter);
 app.use('/api/leads', leadsRouter);
 app.use('/api/stats', statsRouter);
 app.use('/api/calls', callsRouter);
+app.use('/api/telnyx/token', strictLimiter);  // Extra protection on token generation
 app.use('/api/telnyx', telnyxRouter);
 
 // ─── Production: Serve Vite client as static files ─────────

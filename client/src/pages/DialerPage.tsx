@@ -15,7 +15,7 @@ import {
   Edit3
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { callsApi, leadsApi, campaignsApi, settingsApi } from '@/lib/api';
+import { callsApi, leadsApi, campaignsApi, settingsApi, telnyxApi } from '@/lib/api';
 import type { Lead, Campaign } from '@/lib/api';
 import { useTelnyxCall } from '@/hooks/useTelnyxCall';
 import type { CallState } from '@/hooks/useTelnyxCall';
@@ -73,13 +73,28 @@ export default function DialerPage() {
       setCampaign(campaignRes.data as Campaign);
 
       const allLeads = Array.isArray(leadsRes.data) ? leadsRes.data : [];
-      // If we are resuming, skip past completed leads
       const undialedLeads = allLeads.filter(l => l.status === 'new' || l.status === 'calling');
       setLeads(undialedLeads);
 
       const settings = settingsRes.data;
+      if (!settings?.telnyx_sip_login && !settings?.telnyx_api_key) return;
+
+      setSipConfigured(true);
+
+      // Strategy: Try JWT token first (secure), fall back to raw SIP creds
+      try {
+        const tokenRes = await telnyxApi.getToken();
+        if (tokenRes.data?.token) {
+          telnyx.connectWithToken(tokenRes.data.token, settings.telnyx_caller_number);
+          return;
+        }
+      } catch {
+        // Token endpoint failed — fall back to raw SIP credentials
+        console.warn('[DialerPage] JWT token fetch failed, falling back to SIP credentials');
+      }
+
+      // Fallback: raw SIP login/password
       if (settings?.telnyx_sip_login && settings?.telnyx_sip_password) {
-        setSipConfigured(true);
         telnyx.connect(
           settings.telnyx_sip_login,
           settings.telnyx_sip_password,

@@ -31,6 +31,7 @@ export interface QualityMetrics {
 export interface UseTelnyxCallReturn {
   // Actions
   connect: (login: string, password: string, callerNumber?: string) => void;
+  connectWithToken: (token: string, callerNumber?: string) => void;
   disconnect: () => void;
   dial: (destinationNumber: string, callerNumber?: string) => void;
   hangup: () => void;
@@ -126,6 +127,82 @@ export function useTelnyxCall(): UseTelnyxCallReturn {
       const state = call.state;
 
       // Always update call instance for early manipulation (ringing, etc)
+      activeCallRef.current = call;
+      setActiveCall(call);
+
+      if (['trying', 'requesting'].includes(state)) {
+        setCallState('trying');
+      } else if (state === 'ringing') {
+        setCallState('ringing');
+      } else if (state === 'active') {
+        setCallState('active');
+        setIsHeld(false);
+        if (callState !== 'active') startTimer();
+        setSipError(null);
+      } else if (state === 'held') {
+        setCallState('held');
+        setIsHeld(true);
+      } else if (['done', 'hangup', 'destroy'].includes(state)) {
+        setCallState('done');
+        stopTimer();
+        activeCallRef.current = null;
+        setActiveCall(null);
+        setQualityMetrics(null);
+        setIsMuted(false);
+        setIsHeld(false);
+
+        if (call.sipReason) {
+            setSipError(`Call Failed: ${call.sipReason}`);
+        } else if (call.cause) {
+            setSipError(`Call Failed: ${call.cause}`);
+        }
+      }
+    });
+
+    client.connect();
+    clientRef.current = client;
+  }, [startTimer, stopTimer, callState]);
+
+  // ── Connect with JWT Token (Secure) ────────────────
+  const connectWithToken = useCallback((token: string, callerNumber?: string) => {
+    if (clientRef.current) {
+      try { clientRef.current.disconnect(); } catch { /* noop */ }
+    }
+
+    if (callerNumber) callerNumberRef.current = callerNumber;
+    setError(null);
+    setConnectionStatus('connecting');
+
+    const client = new TelnyxRTC({
+      login_token: token,
+      ringtoneFile: '/ringtone.mp3',
+      ringbackFile: '/ringback.mp3'
+    });
+
+    client.on('telnyx.ready', () => {
+      setConnectionStatus('registered');
+      setError(null);
+    });
+
+    client.on('telnyx.error', () => {
+      setConnectionStatus('disconnected');
+      setError('Telnyx connection error. Token may have expired.');
+    });
+
+    client.on('telnyx.socket.close', () => {
+      setConnectionStatus('disconnected');
+    });
+
+    client.on(SwEvent.StatsFrame, (frame: QualityMetrics) => {
+      setQualityMetrics(frame);
+    });
+
+    client.on('telnyx.notification', (notification: INotification) => {
+      if (notification.type !== 'callUpdate' || !notification.call) return;
+
+      const call = TelnyxRTC.telnyxStateCall(notification.call);
+      const state = call.state;
+
       activeCallRef.current = call;
       setActiveCall(call);
 
@@ -274,6 +351,7 @@ export function useTelnyxCall(): UseTelnyxCallReturn {
 
   return {
     connect,
+    connectWithToken,
     disconnect,
     dial,
     hangup,
