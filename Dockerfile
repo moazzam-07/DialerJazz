@@ -19,24 +19,22 @@ RUN cd client && npm ci --legacy-peer-deps
 COPY client/ ./client/
 RUN cd client && npm run build
 
-# 3. Install + build SERVER
-COPY server/package.json server/package-lock.json ./server/
-RUN cd server && npm ci
-
-COPY server/ ./server/
-RUN cd server && npm run build
+# 3. Server dependencies are installed in stage 2, no build needed for server when using tsx
 
 # ─── Stage 2: Production ──────────────────────────────────
 FROM node:22-alpine AS production
 
 WORKDIR /app
 
-# Copy server production deps
+# Copy server package and install production deps
 COPY server/package.json server/package-lock.json ./server/
 RUN cd server && npm ci --omit=dev
 
-# Copy built server
-COPY --from=builder /app/server/dist ./server/dist
+# Install tsx globally to handle ESM resolution for dependencies
+RUN npm install -g tsx
+
+# Copy server source code (we run src directly with tsx)
+COPY server/src ./server/src
 
 # Copy built client (served as static files by Express)
 COPY --from=builder /app/client/dist ./client/dist
@@ -46,4 +44,4 @@ ENV PORT=3001
 
 EXPOSE 3001
 
-CMD ["node", "server/dist/index.js"]
+CMD ["tsx", "server/src/index.ts"]
