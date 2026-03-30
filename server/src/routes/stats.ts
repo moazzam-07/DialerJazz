@@ -1,6 +1,6 @@
 import { Router, Response, NextFunction } from 'express';
-import { requireAuth, AuthenticatedRequest } from '../middleware/auth';
-import { ApiError } from '../middleware/errorHandler';
+import { requireAuth, AuthenticatedRequest } from '../middleware/auth.js';
+import { ApiError } from '../middleware/errorHandler.js';
 
 const router = Router();
 router.use(requireAuth);

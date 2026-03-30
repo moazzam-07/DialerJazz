@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { getInsforgeClient } from '../lib/insforge';
-import { ApiError } from './errorHandler';
+import { getInsforgeClient } from '../lib/insforge.js';
+import { ApiError } from './errorHandler.js';
 
 export interface AuthenticatedRequest extends Request {
   user?: any;

@@ -1,7 +1,7 @@
 import { Router, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { requireAuth, AuthenticatedRequest } from '../middleware/auth';
-import { ApiError } from '../middleware/errorHandler';
+import { requireAuth, AuthenticatedRequest } from '../middleware/auth.js';
+import { ApiError } from '../middleware/errorHandler.js';
 
 const router = Router();
 router.use(requireAuth);
