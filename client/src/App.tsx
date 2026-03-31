@@ -9,6 +9,7 @@ import LeadsPage from './pages/LeadsPage';
 import SettingsPage from './pages/SettingsPage';
 import ConnectorsPage from './pages/ConnectorsPage';
 import DialerPage from './pages/DialerPage';
+import CallLogsPage from './pages/CallLogsPage';
 
 const PublicRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, isLoading } = useAuth();
@@ -66,6 +67,7 @@ function App() {
         <Route path="/dashboard" element={<ProtectedPage><Dashboard /></ProtectedPage>} />
         <Route path="/campaigns" element={<ProtectedPage><CampaignsPage /></ProtectedPage>} />
         <Route path="/leads" element={<ProtectedPage><LeadsPage /></ProtectedPage>} />
+        <Route path="/call-logs" element={<ProtectedPage><CallLogsPage /></ProtectedPage>} />
         <Route path="/connectors" element={<ProtectedPage><ConnectorsPage /></ProtectedPage>} />
         <Route path="/dialer" element={<ProtectedPage><DialerPage /></ProtectedPage>} />
         <Route path="/settings" element={<ProtectedPage><SettingsPage /></ProtectedPage>} />

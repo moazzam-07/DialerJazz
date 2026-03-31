@@ -184,12 +184,61 @@ export const leadsApi = {
 
 // ============ Calls API ============
 
+export interface CallLog {
+  id: string;
+  lead_id: string;
+  campaign_id: string;
+  provider: string;
+  direction: string;
+  from_number: string;
+  to_number: string;
+  status: string;
+  disposition: string | null;
+  disposition_sub: string | null;
+  duration_seconds: number;
+  recording_url: string | null;
+  notes: string | null;
+  started_at: string;
+  ended_at: string;
+  created_at: string;
+  lead: {
+    first_name?: string;
+    last_name?: string;
+    company?: string;
+    phone: string;
+  } | null;
+  campaign: { name: string } | null;
+}
+
+export interface CallStats {
+  totalCalls: number;
+  answeredCalls: number;
+  totalDuration: number;
+  avgDuration: number;
+  dispositionCounts: Record<string, number>;
+}
+
 export const callsApi = {
   log: (payload: { lead_id: string; campaign_id: string; duration_seconds: number; status: string; disposition: string; notes?: string }) =>
     apiFetch<{ data: unknown }>('/calls/log', {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
+
+  list: (params?: { campaign_id?: string; lead_id?: string; limit?: number; offset?: number }) => {
+    const query = new URLSearchParams();
+    if (params?.campaign_id) query.set('campaign_id', params.campaign_id);
+    if (params?.lead_id) query.set('lead_id', params.lead_id);
+    if (params?.limit) query.set('limit', String(params.limit));
+    if (params?.offset) query.set('offset', String(params.offset));
+    const qs = query.toString();
+    return apiFetch<CallLog[]>(`/calls${qs ? `?${qs}` : ''}`);
+  },
+
+  getStats: (campaign_id?: string) => {
+    const query = campaign_id ? `?campaign_id=${campaign_id}` : '';
+    return apiFetch<CallStats>(`/calls/stats${query}`);
+  },
 };
 
 // ============ Settings API ============

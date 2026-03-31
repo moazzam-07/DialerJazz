@@ -11,6 +11,7 @@ import {
   Plug,
   LogOut,
   Menu,
+  Clock,
 } from 'lucide-react';
 
 interface DashboardLayoutProps {
@@ -22,6 +23,7 @@ const NAV_ITEMS = [
   { label: 'Campaigns', icon: PhoneCall, href: '/campaigns' },
   { label: 'Dialer', icon: Headphones, href: '/dialer' },
   { label: 'Leads', icon: Users, href: '/leads' },
+  { label: 'Call Logs', icon: Clock, href: '/call-logs' },
   { label: 'Connectors', icon: Plug, href: '/connectors' },
   { label: 'Settings', icon: Settings, href: '/settings' },
 ];
