@@ -95,25 +95,48 @@ export function useTelnyxCall(): UseTelnyxCallReturn {
     setError(null);
     setConnectionStatus('connecting');
 
+    // Determine environment - use production RTC server for prod
+    const isProduction = import.meta.env.PROD || !import.meta.env.DEV;
+    const rtcHost = isProduction ? 'wss://rtc.telnyx.com' : 'wss://rtcdev.telnyx.com';
+    const env = isProduction ? 'production' : 'development';
+
+    console.log('[useTelnyxCall] Connecting with:', { login, host: rtcHost, env });
+
     const client = new TelnyxRTC({ 
       login, 
       password,
+      host: rtcHost,
+      env: env,
       ringtoneFile: '/ringtone.mp3',
       ringbackFile: '/ringback.mp3'
+    });
+
+    // Socket event handlers for better debugging
+    client.on('telnyx.socket.open', () => {
+      console.log('[useTelnyxCall] Socket connected');
+    });
+
+    client.on('telnyx.socket.error', (err: unknown) => {
+      console.error('[useTelnyxCall] Socket error:', err);
+      setSipError(`Socket error: ${err instanceof Error ? err.message : 'Unknown error'}`);
     });
 
     client.on('telnyx.ready', () => {
       setConnectionStatus('registered');
       setError(null);
+      console.log('[useTelnyxCall] Registered successfully');
     });
 
-    client.on('telnyx.error', () => {
+    client.on('telnyx.error', (err: unknown) => {
       setConnectionStatus('disconnected');
-      setError('Telnyx connection error. Check your SIP credentials.');
+      const msg = err instanceof Error ? err.message : 'Telnyx connection error';
+      setError(msg);
+      console.error('[useTelnyxCall] Telnyx error:', msg);
     });
 
     client.on('telnyx.socket.close', () => {
       setConnectionStatus('disconnected');
+      console.log('[useTelnyxCall] Socket closed');
     });
 
     client.on(SwEvent.StatsFrame, (frame: QualityMetrics) => {
@@ -173,24 +196,47 @@ export function useTelnyxCall(): UseTelnyxCallReturn {
     setError(null);
     setConnectionStatus('connecting');
 
+    // Determine environment - use production RTC server for prod
+    const isProduction = import.meta.env.PROD || !import.meta.env.DEV;
+    const rtcHost = isProduction ? 'wss://rtc.telnyx.com' : 'wss://rtcdev.telnyx.com';
+    const env = isProduction ? 'production' : 'development';
+
+    console.log('[useTelnyxCall] Connecting with token, host:', rtcHost, 'env:', env);
+
     const client = new TelnyxRTC({
       login_token: token,
+      host: rtcHost,
+      env: env,
       ringtoneFile: '/ringtone.mp3',
       ringbackFile: '/ringback.mp3'
+    });
+
+    // Socket event handlers
+    client.on('telnyx.socket.open', () => {
+      console.log('[useTelnyxCall] Socket connected (token mode)');
+    });
+
+    client.on('telnyx.socket.error', (err: unknown) => {
+      console.error('[useTelnyxCall] Socket error:', err);
+      setSipError(`Socket error: ${err instanceof Error ? err.message : 'Unknown error'}`);
     });
 
     client.on('telnyx.ready', () => {
       setConnectionStatus('registered');
       setError(null);
+      console.log('[useTelnyxCall] Registered successfully (token mode)');
     });
 
-    client.on('telnyx.error', () => {
+    client.on('telnyx.error', (err: unknown) => {
       setConnectionStatus('disconnected');
-      setError('Telnyx connection error. Token may have expired.');
+      const msg = err instanceof Error ? err.message : 'Telnyx connection error';
+      setError(msg);
+      console.error('[useTelnyxCall] Telnyx error:', msg);
     });
 
     client.on('telnyx.socket.close', () => {
       setConnectionStatus('disconnected');
+      console.log('[useTelnyxCall] Socket closed (token mode)');
     });
 
     client.on(SwEvent.StatsFrame, (frame: QualityMetrics) => {

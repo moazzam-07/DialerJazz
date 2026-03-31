@@ -13,7 +13,7 @@ router.post('/token', requireAuth, async (req: AuthenticatedRequest, res, next) 
     // 1. Fetch user's Telnyx API Key and SIP login from settings
     const { data: settings, error } = await req.db!.database
       .from('user_settings')
-      .select('telnyx_api_key, telnyx_sip_login')
+      .select('telnyx_api_key, telnyx_sip_login, telnyx_sip_password')
       .eq('user_id', userId)
       .single();
 
@@ -21,8 +21,14 @@ router.post('/token', requireAuth, async (req: AuthenticatedRequest, res, next) 
       throw new ApiError(400, 'Telnyx API Key not configured. Go to Connectors page.', 'config_missing');
     }
 
+    if (!settings?.telnyx_sip_login || !settings?.telnyx_sip_password) {
+      throw new ApiError(400, 'SIP credentials not configured. Go to Connectors page.', 'config_missing');
+    }
+
     const telnyxApiKey = settings.telnyx_api_key;
     const sipLogin = settings.telnyx_sip_login;
+
+    console.log('[telnyx/token] Using SIP login from settings:', sipLogin);
 
     // 2. Find credential connections via Telnyx REST API
     const credsRes = await fetch('https://api.telnyx.com/v2/telephony_credentials', {
@@ -33,19 +39,31 @@ router.post('/token', requireAuth, async (req: AuthenticatedRequest, res, next) 
     });
 
     if (!credsRes.ok) {
+      const errText = await credsRes.text();
       throw new ApiError(502, 'Failed to reach Telnyx API', 'telnyx_upstream');
     }
 
     const credsData = await credsRes.json();
 
-    // Match by SIP login or fallback to the first credential
+    console.log('[telnyx/token] Found credentials:', JSON.stringify(credsData.data));
+    console.log('[telnyx/token] Looking for SIP login:', sipLogin);
+
+    // Filter to only telephony credentials (not mobile push)
+    const validCredentials = credsData.data?.filter(
+      (c: any) => c.resource_type === 'telephony_credential'
+    ) || [];
+
+    // Match by SIP login or fallback to the first valid credential
     const matchingConn =
-      credsData.data?.find((c: any) => c.sip_username === sipLogin) ||
-      credsData.data?.[0];
+      validCredentials.find((c: any) => c.sip_username === sipLogin) ||
+      validCredentials[0];
 
     if (!matchingConn) {
+      console.error('[telnyx/token] No valid telephony credential found. Available:', validCredentials);
       throw new ApiError(400, 'No Telnyx SIP Credential found. Create one in Telnyx dashboard.', 'no_credential');
     }
+
+    console.log('[telnyx/token] Using credential:', matchingConn.id, matchingConn.sip_username);
 
     const connectionId = matchingConn.id;
 
