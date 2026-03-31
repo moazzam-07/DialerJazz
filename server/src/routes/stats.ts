@@ -13,8 +13,8 @@ router.get('/dashboard', async (req: AuthenticatedRequest, res: Response, next: 
     const [campaignsResult, leadsResult, callsResult] = await Promise.all([
       req.db!.database.from('campaigns').select('id', { count: 'exact', head: true }).eq('user_id', user_id),
       req.db!.database.from('leads').select('id', { count: 'exact', head: true }).eq('user_id', user_id),
-      // Approximate answered/called stats by looking at junction statuses
-      req.db!.database.from('leads').select('id', { count: 'exact', head: true }).eq('user_id', user_id).neq('status', 'new')
+      // Count actual distinct call logs
+      req.db!.database.from('call_logs').select('id', { count: 'exact', head: true }).eq('user_id', user_id)
     ]);
 
     if (campaignsResult.error) throw new ApiError(500, campaignsResult.error.message, 'db_error');

@@ -120,7 +120,6 @@ router.get('/campaign/:campaignId', async (req: AuthenticatedRequest, res: Respo
       .database.from('campaign_leads')
       .select(`
         id,
-        status,
         leads (*)
       `, { count: 'exact' })
       .eq('campaign_id', req.params.campaignId)
