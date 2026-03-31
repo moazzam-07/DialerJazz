@@ -13,7 +13,7 @@ router.post('/token', requireAuth, async (req: AuthenticatedRequest, res, next) 
     // 1. Fetch user's Telnyx API Key and SIP login from settings
     const { data: settings, error } = await req.db!.database
       .from('user_settings')
-      .select('telnyx_api_key, telnyx_sip_login, telnyx_sip_password')
+      .select('telnyx_api_key, telnyx_sip_login, telnyx_sip_password, telnyx_caller_number')
       .eq('user_id', userId)
       .single();
 
@@ -27,68 +27,102 @@ router.post('/token', requireAuth, async (req: AuthenticatedRequest, res, next) 
 
     const telnyxApiKey = settings.telnyx_api_key;
     const sipLogin = settings.telnyx_sip_login;
+    const sipPassword = settings.telnyx_sip_password;
 
     console.log('[telnyx/token] Using SIP login from settings:', sipLogin);
 
-    // 2. Find credential connections via Telnyx REST API
-    const credsRes = await fetch('https://api.telnyx.com/v2/telephony_credentials', {
-      headers: {
-        'Authorization': `Bearer ${telnyxApiKey}`,
-        'Content-Type': 'application/json',
-      },
-    });
+    // Try to get telephony credentials first, but fallback to using the connection directly
+    let connectionId: string | null = null;
 
-    if (!credsRes.ok) {
-      const errText = await credsRes.text();
-      throw new ApiError(502, 'Failed to reach Telnyx API', 'telnyx_upstream');
-    }
-
-    const credsData = await credsRes.json();
-
-    console.log('[telnyx/token] Found credentials:', JSON.stringify(credsData.data));
-    console.log('[telnyx/token] Looking for SIP login:', sipLogin);
-
-    // Filter to only telephony credentials (not mobile push)
-    const validCredentials = credsData.data?.filter(
-      (c: any) => c.resource_type === 'telephony_credential'
-    ) || [];
-
-    // Match by SIP login or fallback to the first valid credential
-    const matchingConn =
-      validCredentials.find((c: any) => c.sip_username === sipLogin) ||
-      validCredentials[0];
-
-    if (!matchingConn) {
-      console.error('[telnyx/token] No valid telephony credential found. Available:', validCredentials);
-      throw new ApiError(400, 'No Telnyx SIP Credential found. Create one in Telnyx dashboard.', 'no_credential');
-    }
-
-    console.log('[telnyx/token] Using credential:', matchingConn.id, matchingConn.sip_username);
-
-    const connectionId = matchingConn.id;
-
-    // 3. Generate a short-lived WebRTC JWT
-    const tokenRes = await fetch(
-      `https://api.telnyx.com/v2/telephony_credentials/${connectionId}/token`,
-      {
-        method: 'POST',
+    try {
+      // 2. Find credential connections via Telnyx REST API
+      const credsRes = await fetch('https://api.telnyx.com/v2/telephony_credentials', {
         headers: {
           'Authorization': `Bearer ${telnyxApiKey}`,
           'Content-Type': 'application/json',
         },
-      }
-    );
+      });
 
-    if (!tokenRes.ok) {
-      const errText = await tokenRes.text();
-      console.error('[telnyx/token] Token generation failed:', errText);
-      throw new ApiError(502, 'Failed to generate Telnyx WebRTC token', 'token_failed');
+      if (credsRes.ok) {
+        const credsData = await credsRes.json();
+
+        console.log('[telnyx/token] Found credentials:', JSON.stringify(credsData.data));
+
+        // Filter to only telephony credentials (not mobile push)
+        const validCredentials = credsData.data?.filter(
+          (c: any) => c.resource_type === 'telephony_credential'
+        ) || [];
+
+        // Match by SIP login
+        const matchingConn = validCredentials.find((c: any) => c.sip_username === sipLogin);
+
+        if (matchingConn) {
+          connectionId = matchingConn.id;
+          console.log('[telnyx/token] Using telephony credential:', connectionId);
+        }
+      }
+    } catch (e) {
+      console.log('[telnyx/token] Could not fetch telephony credentials, will use connection directly');
     }
 
-    const tokenData = await tokenRes.json();
-    const jwt = typeof tokenData === 'string' ? tokenData : (tokenData.data || tokenData);
+    // If no telephony credential found, try to find the credential connection
+    if (!connectionId) {
+      try {
+        const connsRes = await fetch('https://api.telnyx.com/v2/credential_connections', {
+          headers: {
+            'Authorization': `Bearer ${telnyxApiKey}`,
+            'Content-Type': 'application/json',
+          },
+        });
 
-    res.json({ token: jwt });
+        if (connsRes.ok) {
+          const connsData = await connsRes.json();
+          console.log('[telnyx/token] Found connections:', JSON.stringify(connsData.data));
+
+          // Find connection by the SIP username
+          const matchingConn = connsData.data?.find((c: any) => c.user_name === sipLogin);
+          if (matchingConn) {
+            connectionId = matchingConn.id;
+            console.log('[telnyx/token] Using credential connection:', connectionId);
+          }
+        }
+      } catch (e) {
+        console.log('[telnyx/token] Could not fetch connections');
+      }
+    }
+
+    // If we have a connection ID, try to generate a JWT
+    if (connectionId) {
+      try {
+        const tokenRes = await fetch(
+          `https://api.telnyx.com/v2/telephony_credentials/${connectionId}/token`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${telnyxApiKey}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        if (tokenRes.ok) {
+          const tokenData = await tokenRes.json();
+          const jwt = typeof tokenData === 'string' ? tokenData : (tokenData.data || tokenData);
+          res.json({ token: jwt });
+          return;
+        }
+      } catch (e) {
+        console.log('[telnyx/token] Could not generate token from telephony credential');
+      }
+    }
+
+    // Fallback: Return the SIP credentials for direct authentication
+    console.log('[telnyx/token] Using direct SIP credentials (no JWT)');
+    res.json({
+      sip_login: sipLogin,
+      sip_password: sipPassword,
+      caller_number: settings.telnyx_caller_number
+    });
   } catch (err) {
     next(err);
   }

@@ -269,10 +269,17 @@ export const settingsApi = {
 
 // ============ Telnyx API ============
 
+export interface TelnyxTokenResponse {
+  token?: string;
+  sip_login?: string;
+  sip_password?: string;
+  caller_number?: string;
+}
+
 export const telnyxApi = {
-  /** Fetch a short-lived WebRTC JWT token from the backend */
+  /** Fetch a short-lived WebRTC JWT token from the backend, or direct SIP credentials */
   getToken: () =>
-    apiFetch<{ token: string }>('/telnyx/token', {
+    apiFetch<TelnyxTokenResponse>('/telnyx/token', {
       method: 'POST',
     }),
 };
