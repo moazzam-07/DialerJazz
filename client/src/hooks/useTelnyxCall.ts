@@ -106,10 +106,10 @@ export function useTelnyxCall(): UseTelnyxCallReturn {
       login, 
       password,
       host: rtcHost,
-      env: env,
+      env: env as 'production' | 'development',
       ringtoneFile: '/ringtone.mp3',
       ringbackFile: '/ringback.mp3'
-    });
+    } as any);
 
     // Socket event handlers for better debugging
     client.on('telnyx.socket.open', () => {
@@ -206,10 +206,10 @@ export function useTelnyxCall(): UseTelnyxCallReturn {
     const client = new TelnyxRTC({
       login_token: token,
       host: rtcHost,
-      env: env,
+      env: env as 'production' | 'development',
       ringtoneFile: '/ringtone.mp3',
       ringbackFile: '/ringback.mp3'
-    });
+    } as any);
 
     // Socket event handlers
     client.on('telnyx.socket.open', () => {
