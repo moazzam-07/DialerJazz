@@ -60,6 +60,26 @@ router.post('/log', requireAuth, async (req: AuthenticatedRequest, res, next) =>
       }
     }
 
+    // Update campaign's leads_called count
+    if (validated.campaign_id) {
+      const { data: campaign } = await req.db!.database
+        .from('campaigns')
+        .select('leads_called')
+        .eq('id', validated.campaign_id)
+        .single();
+
+      if (campaign) {
+        const { error: campaignError } = await req.db!.database
+          .from('campaigns')
+          .update({ leads_called: (campaign.leads_called || 0) + 1, updated_at: new Date().toISOString() })
+          .eq('id', validated.campaign_id);
+
+        if (campaignError) {
+          console.error('[calls/log] Campaign update error:', campaignError);
+        }
+      }
+    }
+
     res.status(200).json({ data: logData });
   } catch (err) {
     next(err);
