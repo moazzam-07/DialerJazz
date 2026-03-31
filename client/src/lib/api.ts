@@ -1,6 +1,6 @@
 import { insforge } from './insforge';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const API_BASE = import.meta.env.VITE_API_URL || 'https://dialerjazz.onrender.com/api';
 
 /**
  * Token holder — set by AuthContext on login,
