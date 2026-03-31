@@ -86,11 +86,12 @@ router.post('/log', requireAuth, async (req: AuthenticatedRequest, res, next) =>
   }
 });
 // GET /api/calls — List call logs for user
-router.get('/', async (req: AuthenticatedRequest, res, next) => {
+router.get('/', requireAuth, async (req: AuthenticatedRequest, res, next) => {
   try {
-    const userId = req.user!.id;
-    const { campaign_id, lead_id, limit = '50', offset = '0' } = req.query;
+    const userId = req.user?.id;
+    if (!userId) throw new ApiError(401, 'Unauthorized', 'auth_required');
 
+    const { campaign_id, lead_id, limit = '50', offset = '0' } = req.query;
     let query = req.db!.database
       .from('call_logs')
       .select(`
@@ -148,9 +149,10 @@ router.get('/', async (req: AuthenticatedRequest, res, next) => {
 });
 
 // GET /api/calls/stats — Get call statistics
-router.get('/stats', async (req: AuthenticatedRequest, res, next) => {
+router.get('/stats', requireAuth, async (req: AuthenticatedRequest, res, next) => {
   try {
-    const userId = req.user!.id;
+    const userId = req.user?.id;
+    if (!userId) throw new ApiError(401, 'Unauthorized', 'auth_required');
     const { campaign_id } = req.query;
 
     let baseQuery = req.db!.database
