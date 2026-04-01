@@ -31,3 +31,7 @@ coverage/
 
 # Temp
 *.tmp
+
+# Custom - contains secrets
+opencode.json
+server-edge.js
