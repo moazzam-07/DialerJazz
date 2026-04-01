@@ -95,17 +95,15 @@ export function useTelnyxCall(): UseTelnyxCallReturn {
     setError(null);
     setConnectionStatus('connecting');
 
-    // Strip domain from SIP username if present (e.g., "user@sip.telnyx.com" -> "user")
-    const cleanLogin = login.replace(/@.+$/, '');
-    console.log('[useTelnyxCall] Connecting with:', { login: cleanLogin, password: '***', callerNumber });
-
     // Determine environment - use production RTC server for prod
     const isProduction = import.meta.env.PROD || !import.meta.env.DEV;
     const rtcHost = isProduction ? 'wss://rtc.telnyx.com' : 'wss://rtcdev.telnyx.com';
     const env = isProduction ? 'production' : 'development';
 
-    const client = new TelnyxRTC({ 
-      login: cleanLogin, 
+    console.log('[useTelnyxCall] Connecting with:', { login, host: rtcHost, env });
+
+    const client = new TelnyxRTC({
+      login,
       password,
       host: rtcHost,
       env: env as 'production' | 'development',
