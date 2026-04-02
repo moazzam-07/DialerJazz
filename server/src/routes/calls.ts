@@ -74,7 +74,7 @@ router.post('/log', requireAuth, async (req: AuthenticatedRequest, res, next) =>
   }
 });
 // GET /api/calls — List call logs for user
-router.get('/', async (req: AuthenticatedRequest, res, next) => {
+router.get('/', requireAuth, async (req: AuthenticatedRequest, res, next) => {
   try {
     const userId = req.user!.id;
     const { campaign_id, lead_id, limit = '50', offset = '0' } = req.query;
@@ -136,7 +136,7 @@ router.get('/', async (req: AuthenticatedRequest, res, next) => {
 });
 
 // GET /api/calls/stats — Get call statistics
-router.get('/stats', async (req: AuthenticatedRequest, res, next) => {
+router.get('/stats', requireAuth, async (req: AuthenticatedRequest, res, next) => {
   try {
     const userId = req.user!.id;
     const { campaign_id } = req.query;
