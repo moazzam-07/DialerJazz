@@ -60,38 +60,17 @@ router.post('/log', requireAuth, async (req: AuthenticatedRequest, res, next) =>
       }
     }
 
-    // Update campaign's leads_called count
-    if (validated.campaign_id) {
-      const { data: campaign } = await req.db!.database
-        .from('campaigns')
-        .select('leads_called')
-        .eq('id', validated.campaign_id)
-        .single();
-
-      if (campaign) {
-        const { error: campaignError } = await req.db!.database
-          .from('campaigns')
-          .update({ leads_called: (campaign.leads_called || 0) + 1, updated_at: new Date().toISOString() })
-          .eq('id', validated.campaign_id);
-
-        if (campaignError) {
-          console.error('[calls/log] Campaign update error:', campaignError);
-        }
-      }
-    }
-
     res.status(200).json({ data: logData });
   } catch (err) {
     next(err);
   }
 });
 // GET /api/calls — List call logs for user
-router.get('/', requireAuth, async (req: AuthenticatedRequest, res, next) => {
+router.get('/', async (req: AuthenticatedRequest, res, next) => {
   try {
-    const userId = req.user?.id;
-    if (!userId) throw new ApiError(401, 'Unauthorized', 'auth_required');
-
+    const userId = req.user!.id;
     const { campaign_id, lead_id, limit = '50', offset = '0' } = req.query;
+
     let query = req.db!.database
       .from('call_logs')
       .select(`
@@ -149,10 +128,9 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res, next) => {
 });
 
 // GET /api/calls/stats — Get call statistics
-router.get('/stats', requireAuth, async (req: AuthenticatedRequest, res, next) => {
+router.get('/stats', async (req: AuthenticatedRequest, res, next) => {
   try {
-    const userId = req.user?.id;
-    if (!userId) throw new ApiError(401, 'Unauthorized', 'auth_required');
+    const userId = req.user!.id;
     const { campaign_id } = req.query;
 
     let baseQuery = req.db!.database

@@ -1,7 +1,6 @@
 {
   "name": "jazz-caller",
   "version": "1.0.0",
-  "private": true,
   "description": "Premium SaaS Power Dialer — Tinder for Sales Calls",
   "scripts": {
     "dev": "concurrently \"npm run dev:client\" \"npm run dev:server\"",

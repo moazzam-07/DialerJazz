@@ -32,6 +32,6 @@ coverage/
 # Temp
 *.tmp
 
-# Custom - contains secrets
+# Secrets - never commit these
 opencode.json
 server-edge.js

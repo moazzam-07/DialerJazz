@@ -1,5 +1,6 @@
 import { insforge } from './insforge';
 
+// Use environment variable for API URL
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 /**
@@ -269,17 +270,10 @@ export const settingsApi = {
 
 // ============ Telnyx API ============
 
-export interface TelnyxTokenResponse {
-  token?: string;
-  sip_login?: string;
-  sip_password?: string;
-  caller_number?: string;
-}
-
 export const telnyxApi = {
-  /** Fetch a short-lived WebRTC JWT token from the backend, or direct SIP credentials */
+  /** Fetch a short-lived WebRTC JWT token from the backend */
   getToken: () =>
-    apiFetch<TelnyxTokenResponse>('/telnyx/token', {
+    apiFetch<{ token: string }>('/telnyx/token', {
       method: 'POST',
     }),
 };

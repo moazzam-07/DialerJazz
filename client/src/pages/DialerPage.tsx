@@ -86,33 +86,16 @@ export default function DialerPage() {
       // Strategy: Try JWT token first (secure), fall back to raw SIP creds
       try {
         const tokenRes = await telnyxApi.getToken();
-        const tokenData = tokenRes.data;
-
-        // Check if we got a JWT token
-        if (tokenData?.token) {
-          console.log('[DialerPage] Got JWT token, connecting with token');
-          telnyx.connectWithToken(tokenData.token, settings.telnyx_caller_number);
+        if (tokenRes.data?.token) {
+          telnyx.connectWithToken(tokenRes.data.token, settings.telnyx_caller_number);
           return;
         }
-
-        // Check if we got direct SIP credentials (fallback)
-        if (tokenData?.sip_login && tokenData?.sip_password) {
-          console.log('[DialerPage] Got direct SIP credentials, connecting with username/password');
-          telnyx.connect(
-            tokenData.sip_login,
-            tokenData.sip_password,
-            tokenData.caller_number || settings.telnyx_caller_number
-          );
-          return;
-        }
-
-        console.warn('[DialerPage] Unexpected token response:', tokenData);
       } catch {
         // Token endpoint failed — fall back to raw SIP credentials
         console.warn('[DialerPage] JWT token fetch failed, falling back to SIP credentials');
       }
 
-      // Fallback: raw SIP login/password from settings
+      // Fallback: raw SIP login/password
       if (settings?.telnyx_sip_login && settings?.telnyx_sip_password) {
         telnyx.connect(
           settings.telnyx_sip_login,
