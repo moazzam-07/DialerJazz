@@ -16,7 +16,14 @@
 
 ## 🌟 The Pitch
 
-DialerJazz is the future of outbound sales. We've built an open-source, ultra-premium SaaS Power Dialer that flips the traditional CRM model on its head. Instead of boring tables and lists, DialerJazz implements a "Tinder for Sales Calls" interface: rapidly swipe, categorize, and execute outbound campaigns with a beautifully designed, gamified experience to maximize SDR productivity.
+**DialerJazz is the world's most beautiful open-source Power Dialer.** It completely reimagines the outbound sales experience by replacing boring lists with a gamified workflow featuring an unmatched premium UI. 
+
+Whether you need a full omni-channel calling solution or a hyper-focused tool, DialerJazz delivers with three distinct calling protocols:
+- 🔥 **Tinder Mode:** Rapidly swipe your way through leads with our signature gamified UI.
+- ⚡ **Power Mode:** Automated, high-velocity sequential dialing to maximize connect rates.
+- 📞 **Normal Mode:** Traditional, controlled single-dial workflows with a premium facelift.
+
+DialerJazz offers absolute universal connectivity—instantly hook into **Twilio, Telnyx, or any custom WebRTC** provider out of the box.
 
 ## 📸 In Action
 *(Screenshots & GIFs coming soon upon application completion...)*

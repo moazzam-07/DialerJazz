@@ -1,7 +1,7 @@
 {
   "name": "jazz-caller",
   "version": "1.0.0",
-  "description": "Premium SaaS Power Dialer — Tinder for Sales Calls",
+  "description": "Open-source Power Dialer with a premium Tinder-style UI, automated power dialing, and universal WebRTC/Twilio connectivity.",
   "scripts": {
     "dev": "concurrently \"npm run dev:client\" \"npm run dev:server\"",
     "dev:client": "cd client && npm run dev",
