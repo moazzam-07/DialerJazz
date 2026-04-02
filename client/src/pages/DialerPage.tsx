@@ -166,11 +166,15 @@ export default function DialerPage() {
     try {
       const dispValue = DISPOSITIONS.find(d => d.label === dispositionLabel)?.value || 'answered';
       
+      // Get call duration - ensure it's a valid number
+      const callDuration = typeof telnyx.callDuration === 'number' ? telnyx.callDuration : 0;
+      console.log('[DialerPage] Saving call - duration:', callDuration, 'disposition:', dispValue);
+      
       // Log the full call event, duration, and disposition to our new calls API
       await callsApi.log({
         lead_id: currentLead.id,
         campaign_id: campaign?.id || '',
-        duration_seconds: telnyx.callDuration || 0,
+        duration_seconds: callDuration,
         status: 'completed',
         disposition: dispValue,
         notes: notes 

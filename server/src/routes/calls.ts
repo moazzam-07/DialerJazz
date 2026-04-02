@@ -21,8 +21,12 @@ router.post('/log', requireAuth, async (req: AuthenticatedRequest, res, next) =>
     const userId = req.user?.id;
     if (!userId) throw new ApiError(401, 'Unauthorized', 'auth_required');
 
+    console.log('[calls/log] Received payload:', req.body);
+
     // Validate input with Zod — throws ZodError caught by centralized errorHandler
     const validated = callLogSchema.parse(req.body);
+
+    console.log('[calls/log] Validated data:', validated);
 
     // Insert call log
     const { data: logData, error: logError } = await req.db!.database
@@ -37,6 +41,8 @@ router.post('/log', requireAuth, async (req: AuthenticatedRequest, res, next) =>
         status: validated.status,
         disposition: validated.disposition || null,
         notes: validated.notes || null,
+        started_at: new Date().toISOString(),
+        ended_at: new Date().toISOString(),
       })
       .select()
       .single();
@@ -45,6 +51,8 @@ router.post('/log', requireAuth, async (req: AuthenticatedRequest, res, next) =>
       console.error('[calls/log] Insert error:', logError);
       throw new ApiError(500, logError.message, 'db_error');
     }
+
+    console.log('[calls/log] Inserted log:', logData);
 
     // Update lead status to match disposition
     if (validated.disposition) {
