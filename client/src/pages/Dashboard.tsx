@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Phone, Users, Clock, Plus, Wifi, WifiOff, Loader2, FolderOpen } from 'lucide-react';
 import { toast } from 'sonner';
 import CampaignCard from '@/components/CampaignCard';
@@ -7,6 +8,7 @@ import { campaignsApi, settingsApi, statsApi, type Campaign } from '@/lib/api';
 import CreateCampaignModal from '@/components/CreateCampaignModal';
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [stats, setStats] = useState({ totalCampaigns: 0, totalLeads: 0, totalCallsMade: 0 });
   const [isLoading, setIsLoading] = useState(true);
@@ -145,6 +147,7 @@ export default function Dashboard() {
               <CampaignCard 
                 key={campaign.id} 
                 campaign={campaign} 
+                onStartDialing={(id) => navigate(`/dialer?campaign=${id}`)}
                 onUpdated={() => { fetchCampaigns(); fetchStats(); }}
               />
             ))}

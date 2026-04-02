@@ -24,15 +24,16 @@ import InCallHUD from '@/components/InCallHUD';
 import DispositionOverlay from '@/components/DispositionOverlay';
 
 type DialerMode = 'power' | 'click';
-type Disposition = 'answered' | 'no_answer' | 'voicemail' | 'busy' | 'dnc';
+type Disposition = 'answered' | 'follow_up' | 'not_interested' | 'no_answer' | 'voicemail' | 'busy' | 'dnc';
 
 const DISPOSITIONS: { value: Disposition; label: string; color: string; emoji: string; primary?: boolean }[] = [
-  { value: 'answered',   label: 'Interested',  color: 'bg-emerald-500', emoji: '🔥', primary: true },
-  { value: 'answered',   label: 'Follow-up',   color: 'bg-indigo-500', emoji: '🤝', primary: true },
-  { value: 'answered',   label: 'Not Interested',color: 'bg-zinc-500', emoji: '❄️', primary: true },
-  { value: 'no_answer',  label: 'No Answer',   color: 'bg-amber-500', emoji: '📵' },
-  { value: 'busy',       label: 'Wrong Number',color: 'bg-orange-500', emoji: '❌' },
-  { value: 'dnc',        label: 'Do Not Call', color: 'bg-red-500', emoji: '🚫' },
+  { value: 'answered',       label: 'Interested',     color: 'bg-emerald-500', emoji: '🔥', primary: true },
+  { value: 'follow_up',      label: 'Follow-up',      color: 'bg-indigo-500', emoji: '🤝', primary: true },
+  { value: 'not_interested',label: 'Not Interested', color: 'bg-zinc-500',   emoji: '❄️', primary: true },
+  { value: 'no_answer',      label: 'No Answer',      color: 'bg-amber-500', emoji: '📵' },
+  { value: 'voicemail',      label: 'Voicemail',       color: 'bg-purple-500',emoji: '📩' },
+  { value: 'busy',           label: 'Wrong Number',    color: 'bg-orange-500',emoji: '❌' },
+  { value: 'dnc',            label: 'Do Not Call',     color: 'bg-red-500',   emoji: '🚫' },
 ];
 
 
@@ -75,8 +76,18 @@ export default function DialerPage() {
       setCampaign(campaignRes.data as Campaign);
 
       const allLeads = Array.isArray(leadsRes.data) ? leadsRes.data : [];
+      // Filter to only undialed leads (status: new or calling)
       const undialedLeads = allLeads.filter(l => l.status === 'new' || l.status === 'calling');
       setLeads(undialedLeads);
+
+      // Restore saved progress from localStorage
+      const savedIndex = localStorage.getItem(`dialer_progress_${campaignId}`);
+      if (savedIndex) {
+        const idx = parseInt(savedIndex, 10);
+        if (!isNaN(idx) && idx < undialedLeads.length) {
+          setCurrentIndex(idx);
+        }
+      }
 
       const settings = settingsRes.data;
       if (!settings?.telnyx_sip_login && !settings?.telnyx_api_key) return;
@@ -164,8 +175,17 @@ export default function DialerPage() {
         disposition: dispValue,
         notes: notes 
       });
+      
+      // Update lead status so it won't appear on refresh
+      await leadsApi.updateDisposition(currentLead.id, dispValue);
+      
       toast.success(`Marked as ${dispositionLabel}`);
       setShowDisposition(false);
+
+      // Save progress to localStorage after disposition
+      if (campaignId) {
+        localStorage.setItem(`dialer_progress_${campaignId}`, String(currentIndex));
+      }
 
       if (dialerSessionMode === 'power') {
         // Auto-swipe in 1.5 seconds if power dialer
@@ -194,12 +214,26 @@ export default function DialerPage() {
   }
 
   const navigateNext = () => {
-    if (currentIndex + 1 < leads.length) setCurrentIndex(p => p + 1);
+    if (currentIndex + 1 < leads.length) {
+      const newIndex = currentIndex + 1;
+      setCurrentIndex(p => p + 1);
+      // Save progress to localStorage
+      if (campaignId) {
+        localStorage.setItem(`dialer_progress_${campaignId}`, String(newIndex));
+      }
+    }
     else toast.info('All leads dialed!');
   }
 
   const navigatePrev = () => {
-    if (currentIndex - 1 >= 0) setCurrentIndex(p => p - 1);
+    if (currentIndex - 1 >= 0) {
+      const newIndex = currentIndex - 1;
+      setCurrentIndex(p => p - 1);
+      // Save progress to localStorage
+      if (campaignId) {
+        localStorage.setItem(`dialer_progress_${campaignId}`, String(newIndex));
+      }
+    }
   }
 
   // --- Framer Motion Swipe Physics ---
