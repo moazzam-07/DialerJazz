@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./logo.png" alt="DialerJazz Logo" width="100%"/>
+  <img src="./logo.png" alt="DialerJazz Logo" width="70%"/>
 
   # DialerJazz
   **Premium SaaS Power Dialer — Tinder for Sales Calls**
