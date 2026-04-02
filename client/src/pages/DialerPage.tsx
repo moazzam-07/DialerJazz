@@ -45,6 +45,8 @@ export default function DialerPage() {
 
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [totalLeadsCount, setTotalLeadsCount] = useState(0);
+  const [calledLeadsCount, setCalledLeadsCount] = useState(0);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -79,6 +81,10 @@ export default function DialerPage() {
       // Filter to only undialed leads (status: new or calling)
       const undialedLeads = allLeads.filter(l => l.status === 'new' || l.status === 'calling');
       setLeads(undialedLeads);
+      
+      // Track total and called counts for display
+      setTotalLeadsCount(allLeads.length);
+      setCalledLeadsCount(allLeads.length - undialedLeads.length);
 
       // Restore saved progress from localStorage
       const savedIndex = localStorage.getItem(`dialer_progress_${campaignId}`);
@@ -346,9 +352,9 @@ export default function DialerPage() {
           <div>
             <h1 className="font-bold text-lg text-white">{campaign?.name}</h1>
             <div className="flex items-center gap-2 text-xs text-zinc-500 font-medium tracking-wider uppercase">
-              {dialerSessionMode === 'power' ? <Zap className="h-3 w-3 text-emerald-500" /> : <MousePointerClick className="h-3 w-3 text-blue-500"/>}
-              {dialerSessionMode} Mode • Lead {currentIndex + 1} of {leads.length}
-            </div>
+               {dialerSessionMode === 'power' ? <Zap className="h-3 w-3 text-emerald-500" /> : <MousePointerClick className="h-3 w-3 text-blue-500"/>}
+               {dialerSessionMode} Mode • {calledLeadsCount + currentIndex + 1} of {totalLeadsCount} leads
+             </div>
           </div>
         </div>
         <div className="flex items-center gap-2">
