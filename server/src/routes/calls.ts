@@ -54,8 +54,19 @@ router.post('/log', requireAuth, async (req: AuthenticatedRequest, res, next) =>
 
     console.log('[calls/log] Inserted log:', logData);
 
-    // Update lead status to match disposition
+    // Step 1: Check if this lead was previously uncalled (status is 'new' or 'calling')
+    let wasUncalled = false;
     if (validated.disposition) {
+      const { data: leadData } = await req.db!.database
+        .from('leads')
+        .select('status')
+        .eq('id', validated.lead_id)
+        .eq('user_id', userId)
+        .single();
+
+      wasUncalled = !leadData?.status || leadData.status === 'new' || leadData.status === 'calling';
+
+      // Step 2: Update lead status to the disposition
       const { error: leadError } = await req.db!.database
         .from('leads')
         .update({ status: validated.disposition })
@@ -64,29 +75,28 @@ router.post('/log', requireAuth, async (req: AuthenticatedRequest, res, next) =>
 
       if (leadError) {
         console.error('[calls/log] Lead update error:', leadError);
-        // Non-fatal — log was still created
       }
     }
 
-    // Update campaign's leads_called counter based on actual called leads
-    if (validated.campaign_id) {
+    // Step 3: If this was a fresh call (lead was uncalled), increment campaign counter
+    if (validated.campaign_id && wasUncalled) {
       try {
-        // Count leads in this campaign whose status is NOT 'new' or 'calling'
-        const { count, error: countError } = await req.db!.database
-          .from('campaign_leads')
-          .select('lead_id, leads!inner(status)', { count: 'exact', head: true })
-          .eq('campaign_id', validated.campaign_id)
-          .not('leads.status', 'in', '("new","calling")');
+        // Get current count, increment by 1
+        const { data: campData } = await req.db!.database
+          .from('campaigns')
+          .select('leads_called')
+          .eq('id', validated.campaign_id)
+          .single();
 
-        if (!countError && count !== null) {
-          await req.db!.database
-            .from('campaigns')
-            .update({ leads_called: count, updated_at: new Date().toISOString() })
-            .eq('id', validated.campaign_id);
-        }
+        const currentCount = campData?.leads_called || 0;
+        await req.db!.database
+          .from('campaigns')
+          .update({ leads_called: currentCount + 1, updated_at: new Date().toISOString() })
+          .eq('id', validated.campaign_id);
+
+        console.log('[calls/log] Campaign counter updated:', currentCount, '->', currentCount + 1);
       } catch (e) {
         console.error('[calls/log] Campaign counter update error:', e);
-        // Non-fatal
       }
     }
 
