@@ -55,7 +55,6 @@ router.post('/log', requireAuth, async (req: AuthenticatedRequest, res, next) =>
     console.log('[calls/log] Inserted log:', logData);
 
     // Step 1: Check if this lead was previously uncalled (status is 'new' or 'calling')
-    let wasUncalled = false;
     if (validated.disposition) {
       const { data: leadData } = await req.db!.database
         .from('leads')
@@ -64,7 +63,7 @@ router.post('/log', requireAuth, async (req: AuthenticatedRequest, res, next) =>
         .eq('user_id', userId)
         .single();
 
-      wasUncalled = !leadData?.status || leadData.status === 'new' || leadData.status === 'calling';
+      const wasUncalled = !leadData?.status || leadData.status === 'new' || leadData.status === 'calling';
 
       // Step 2: Update lead status to the disposition
       const { error: leadError } = await req.db!.database
@@ -76,27 +75,22 @@ router.post('/log', requireAuth, async (req: AuthenticatedRequest, res, next) =>
       if (leadError) {
         console.error('[calls/log] Lead update error:', leadError);
       }
-    }
 
-    // Step 3: If this was a fresh call (lead was uncalled), increment campaign counter
-    if (validated.campaign_id && wasUncalled) {
-      try {
-        // Get current count, increment by 1
-        const { data: campData } = await req.db!.database
-          .from('campaigns')
-          .select('leads_called')
-          .eq('id', validated.campaign_id)
-          .single();
+      // Step 3: If this was a fresh call, atomically recount the campaign progress
+      // Uses a DB function to avoid read-modify-write race conditions
+      if (validated.campaign_id && wasUncalled) {
+        try {
+          const { data: countResult, error: rpcError } = await req.db!.database
+            .rpc('increment_campaign_calls', { p_campaign_id: validated.campaign_id });
 
-        const currentCount = campData?.leads_called || 0;
-        await req.db!.database
-          .from('campaigns')
-          .update({ leads_called: currentCount + 1, updated_at: new Date().toISOString() })
-          .eq('id', validated.campaign_id);
-
-        console.log('[calls/log] Campaign counter updated:', currentCount, '->', currentCount + 1);
-      } catch (e) {
-        console.error('[calls/log] Campaign counter update error:', e);
+          if (rpcError) {
+            console.error('[calls/log] RPC counter error:', rpcError);
+          } else {
+            console.log('[calls/log] Campaign counter synced to:', countResult);
+          }
+        } catch (e) {
+          console.error('[calls/log] Campaign counter update error:', e);
+        }
       }
     }
 
