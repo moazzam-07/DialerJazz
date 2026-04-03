@@ -68,6 +68,28 @@ router.post('/log', requireAuth, async (req: AuthenticatedRequest, res, next) =>
       }
     }
 
+    // Update campaign's leads_called counter based on actual called leads
+    if (validated.campaign_id) {
+      try {
+        // Count leads in this campaign whose status is NOT 'new' or 'calling'
+        const { count, error: countError } = await req.db!.database
+          .from('campaign_leads')
+          .select('lead_id, leads!inner(status)', { count: 'exact', head: true })
+          .eq('campaign_id', validated.campaign_id)
+          .not('leads.status', 'in', '("new","calling")');
+
+        if (!countError && count !== null) {
+          await req.db!.database
+            .from('campaigns')
+            .update({ leads_called: count, updated_at: new Date().toISOString() })
+            .eq('id', validated.campaign_id);
+        }
+      } catch (e) {
+        console.error('[calls/log] Campaign counter update error:', e);
+        // Non-fatal
+      }
+    }
+
     res.status(200).json({ data: logData });
   } catch (err) {
     next(err);

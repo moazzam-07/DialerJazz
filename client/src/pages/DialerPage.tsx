@@ -86,14 +86,9 @@ export default function DialerPage() {
       setTotalLeadsCount(allLeads.length);
       setCalledLeadsCount(allLeads.length - undialedLeads.length);
 
-      // Restore saved progress from localStorage
-      const savedIndex = localStorage.getItem(`dialer_progress_${campaignId}`);
-      if (savedIndex) {
-        const idx = parseInt(savedIndex, 10);
-        if (!isNaN(idx) && idx < undialedLeads.length) {
-          setCurrentIndex(idx);
-        }
-      }
+      // Always start at index 0 — the filtered array already removes called leads,
+      // so index 0 IS the next undialed lead. No localStorage needed.
+      setCurrentIndex(0);
 
       const settings = settingsRes.data;
       if (!settings?.telnyx_sip_login && !settings?.telnyx_api_key) return;
@@ -191,11 +186,6 @@ export default function DialerPage() {
       
       toast.success(`Marked as ${dispositionLabel}`);
       setShowDisposition(false);
-
-      // Save progress to localStorage after disposition
-      if (campaignId) {
-        localStorage.setItem(`dialer_progress_${campaignId}`, String(currentIndex));
-      }
 
       if (dialerSessionMode === 'power') {
         // Auto-swipe in 1.5 seconds if power dialer
