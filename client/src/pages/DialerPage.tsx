@@ -86,9 +86,15 @@ export default function DialerPage() {
       setTotalLeadsCount(allLeads.length);
       setCalledLeadsCount(allLeads.length - undialedLeads.length);
 
-      // Always start at index 0 — the filtered array already removes called leads,
-      // so index 0 IS the next undialed lead. No localStorage needed.
-      setCurrentIndex(0);
+      // Restore position by lead ID (survives array size changes)
+      const savedLeadId = localStorage.getItem(`dialer_lead_${campaignId}`);
+      if (savedLeadId) {
+        const idx = undialedLeads.findIndex(l => l.id === savedLeadId);
+        // If found, resume there. If lead was called (no longer in list), start at 0.
+        setCurrentIndex(idx >= 0 ? idx : 0);
+      } else {
+        setCurrentIndex(0);
+      }
 
       const settings = settingsRes.data;
       if (!settings?.telnyx_sip_login && !settings?.telnyx_api_key) return;
@@ -129,10 +135,11 @@ export default function DialerPage() {
     return () => telnyx.disconnect();
   }, [loadData]);
 
-  // Handle call lifecycle exactly as requested
+  // Handle call lifecycle — show disposition after ANY call attempt ends
   useEffect(() => {
-    if (prevCallState.current === 'active' && telnyx.callState === 'done') {
-      // Call dropped -> Show Bottom Sheet overlay
+    const wasCallAttempt = ['trying', 'ringing', 'active'].includes(prevCallState.current);
+    if (wasCallAttempt && telnyx.callState === 'done') {
+      // Call ended (whether connected or not) -> Show disposition overlay
       setShowDisposition(true);
       setShowDTMF(false);
     }
@@ -216,10 +223,10 @@ export default function DialerPage() {
   const navigateNext = () => {
     if (currentIndex + 1 < leads.length) {
       const newIndex = currentIndex + 1;
-      setCurrentIndex(p => p + 1);
-      // Save progress to localStorage
-      if (campaignId) {
-        localStorage.setItem(`dialer_progress_${campaignId}`, String(newIndex));
+      setCurrentIndex(newIndex);
+      // Save the lead ID we're navigating TO (survives array changes on refresh)
+      if (campaignId && leads[newIndex]) {
+        localStorage.setItem(`dialer_lead_${campaignId}`, leads[newIndex].id);
       }
     }
     else toast.info('All leads dialed!');
@@ -228,10 +235,9 @@ export default function DialerPage() {
   const navigatePrev = () => {
     if (currentIndex - 1 >= 0) {
       const newIndex = currentIndex - 1;
-      setCurrentIndex(p => p - 1);
-      // Save progress to localStorage
-      if (campaignId) {
-        localStorage.setItem(`dialer_progress_${campaignId}`, String(newIndex));
+      setCurrentIndex(newIndex);
+      if (campaignId && leads[newIndex]) {
+        localStorage.setItem(`dialer_lead_${campaignId}`, leads[newIndex].id);
       }
     }
   }
