@@ -50,8 +50,13 @@ export default function CampaignDialerPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // New State Flow
-  const [dialerSessionMode, setDialerSessionMode] = useState<DialerMode | null>(null);
+  // New State Flow — restore mode from localStorage so returning to the campaign skips mode selection
+  const [dialerSessionMode, setDialerSessionMode] = useState<DialerMode | null>(
+    () => {
+      const saved = localStorage.getItem(`dialer_mode_${campaignId}`);
+      return (saved === 'power' || saved === 'click') ? saved : null;
+    }
+  );
   const [showDisposition, setShowDisposition] = useState(false);
   const [isDisposing, setIsDisposing] = useState(false);
   const [showDTMF, setShowDTMF] = useState(false);
@@ -73,18 +78,18 @@ export default function CampaignDialerPage() {
       setCampaign(campaignRes.data as Campaign);
 
       const allLeads = Array.isArray(leadsRes.data) ? leadsRes.data : [];
-      // Filter to only undialed leads (status: new or calling)
-      const undialedLeads = allLeads.filter(l => l.status === 'new' || l.status === 'calling');
-      setLeads(undialedLeads);
+      // Load ALL leads (including already-dialed) so user can navigate freely
+      setLeads(allLeads);
       
       // Track total and called counts for display
+      const dialedCount = allLeads.filter(l => l.status !== 'new' && l.status !== 'calling').length;
       setTotalLeadsCount(allLeads.length);
-      setCalledLeadsCount(allLeads.length - undialedLeads.length);
+      setCalledLeadsCount(dialedCount);
 
       // Restore position by lead ID (survives array size changes)
       const savedLeadId = localStorage.getItem(`dialer_lead_${campaignId}`);
       if (savedLeadId) {
-        const idx = undialedLeads.findIndex(l => l.id === savedLeadId);
+        const idx = allLeads.findIndex(l => l.id === savedLeadId);
         setCurrentIndex(idx >= 0 ? idx : 0);
       } else {
         setCurrentIndex(0);
@@ -101,6 +106,14 @@ export default function CampaignDialerPage() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Track this route for the ActiveCallBubble (so it knows where to return)
+  useEffect(() => {
+    if (campaignId) {
+      telnyx.setActiveCallRoute(`/campaigns/${campaignId}/dial`);
+    }
+    return () => { telnyx.setActiveCallRoute(null); };
+  }, [campaignId]);
 
   // Handle call lifecycle — show disposition after ANY call attempt ends
   useEffect(() => {
@@ -268,6 +281,15 @@ export default function CampaignDialerPage() {
 
   if (leads.length === 0) return <div className="text-center py-40"><h2 className="text-2xl font-bold">All leads dialed!</h2></div>;
 
+  // Helper: persist mode to localStorage when selected
+  const selectDialerMode = (mode: DialerMode) => {
+    setDialerSessionMode(mode);
+    if (campaignId) localStorage.setItem(`dialer_mode_${campaignId}`, mode);
+  };
+
+  // Helper: check if a lead has already been dialed
+  const isLeadDialed = (lead: Lead) => lead.status !== 'new' && lead.status !== 'calling';
+
   // -- Pre-Dial Selection Screen --
   if (!dialerSessionMode) {
     return (
@@ -277,7 +299,7 @@ export default function CampaignDialerPage() {
           <p className="text-xl text-zinc-400">How do you want to handle these {leads.length} leads?</p>
         </div>
         <div className="grid md:grid-cols-2 gap-6">
-          <button onClick={() => setDialerSessionMode('power')} className="group relative bg-[#1A1A1E] border border-white/10 hover:border-emerald-500/50 p-10 rounded-3xl text-left transition-all hover:shadow-[0_0_40px_rgba(16,185,129,0.1)]">
+          <button onClick={() => selectDialerMode('power')} className="group relative bg-[#1A1A1E] border border-white/10 hover:border-emerald-500/50 p-10 rounded-3xl text-left transition-all hover:shadow-[0_0_40px_rgba(16,185,129,0.1)]">
             <div className="h-16 w-16 bg-emerald-500/10 text-emerald-500 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
               <Zap className="h-8 w-8" />
             </div>
@@ -287,7 +309,7 @@ export default function CampaignDialerPage() {
             </p>
           </button>
           
-          <button onClick={() => setDialerSessionMode('click')} className="group relative bg-[#1A1A1E] border border-white/10 hover:border-blue-500/50 p-10 rounded-3xl text-left transition-all hover:shadow-[0_0_40px_rgba(59,130,246,0.1)]">
+          <button onClick={() => selectDialerMode('click')} className="group relative bg-[#1A1A1E] border border-white/10 hover:border-blue-500/50 p-10 rounded-3xl text-left transition-all hover:shadow-[0_0_40px_rgba(59,130,246,0.1)]">
             <div className="h-16 w-16 bg-blue-500/10 text-blue-500 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
               <MousePointerClick className="h-8 w-8" />
             </div>
@@ -362,7 +384,13 @@ export default function CampaignDialerPage() {
               style={{ paddingBottom: '90px' }} // Room for dial button mapping
             >
               {/* Card Contents */}
-              <div className="flex flex-col items-center text-center mt-6 mb-8">
+              <div className="flex flex-col items-center text-center mt-6 mb-8 relative">
+                 {/* Dialed checkmark badge */}
+                 {isLeadDialed(currentLead) && (
+                   <div className="absolute -top-2 -right-2 h-7 w-7 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/30 z-20">
+                     <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                   </div>
+                 )}
                  <div className="h-24 w-24 rounded-full bg-gradient-to-br from-emerald-500/20 to-emerald-700/10 border border-emerald-500/30 flex items-center justify-center mb-4">
                     <User className="h-10 w-10 text-emerald-500" />
                  </div>

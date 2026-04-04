@@ -16,6 +16,7 @@ import {
 import IncomingCallOverlay from '@/components/IncomingCallOverlay';
 import IncomingCallBanner from '@/components/IncomingCallBanner';
 import HeldCallBubble from '@/components/HeldCallBubble';
+import ActiveCallBubble from '@/components/ActiveCallBubble';
 import { useTelnyxContext } from '@/contexts/TelnyxContext';
 
 interface DashboardLayoutProps {
@@ -60,6 +61,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       <IncomingCallOverlay />
       <IncomingCallBanner />
       <HeldCallBubble />
+      <ActiveCallBubble />
       {/* Mobile Sidebar Overlay */}
       {isMobileMenuOpen && (
         <div 

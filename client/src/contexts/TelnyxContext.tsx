@@ -69,6 +69,10 @@ export interface TelnyxContextValue {
   toggleHold: () => void;
   sendDTMF: (digit: string) => void;
 
+  // Navigation — tracks which route the user was on when a call started
+  activeCallRoute: string | null;
+  setActiveCallRoute: (route: string | null) => void;
+
   // Errors
   error: string | null;
   sipError: string | null;
@@ -114,6 +118,9 @@ export function TelnyxProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [sipError, setSipError] = useState<string | null>(null);
   const [qualityMetrics, setQualityMetrics] = useState<QualityMetrics | null>(null);
+
+  // Navigation — where was the user when a call started
+  const [activeCallRoute, setActiveCallRoute] = useState<string | null>(null);
 
   // ── Timer helpers ──────────────────────────────────────────────────
   const startPrimaryTimer = useCallback(() => {
@@ -562,6 +569,9 @@ export function TelnyxProvider({ children }: { children: ReactNode }) {
     error,
     sipError,
     qualityMetrics,
+
+    activeCallRoute,
+    setActiveCallRoute,
   };
 
   return (

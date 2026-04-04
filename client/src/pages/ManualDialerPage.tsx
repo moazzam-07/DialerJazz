@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Phone, Delete, Loader2, AlertCircle } from 'lucide-react';
@@ -14,6 +14,12 @@ export default function ManualDialerPage() {
 
   const [numberInput, setNumberInput] = useState('');
   const [showDTMF, setShowDTMF] = useState(false);
+
+  // Track this route for the ActiveCallBubble
+  useEffect(() => {
+    telnyx.setActiveCallRoute('/dialer');
+    return () => { telnyx.setActiveCallRoute(null); };
+  }, []);
 
   const handleDial = () => {
     if (!telnyx.sipConfigured) return toast.error('Configure Telnyx SIP in Connectors first.');
