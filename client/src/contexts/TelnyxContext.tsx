@@ -265,6 +265,7 @@ export function TelnyxProvider({ children }: { children: ReactNode }) {
         setQualityMetrics(null);
         setIsMuted(false);
         setIsHeld(false);
+        setActiveCallRoute(null); // Clear so ActiveCallBubble hides
 
         if (call.sipReason) {
           setSipError(`Call Failed: ${call.sipReason}`);
@@ -438,6 +439,7 @@ export function TelnyxProvider({ children }: { children: ReactNode }) {
     setQualityMetrics(null);
     setIsMuted(false);
     setIsHeld(false);
+    setActiveCallRoute(null);
   }, [stopPrimaryTimer]);
 
   const answerIncoming = useCallback(() => {

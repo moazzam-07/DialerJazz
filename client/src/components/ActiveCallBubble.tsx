@@ -11,7 +11,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useTelnyxContext } from '@/contexts/TelnyxContext';
 
 // Routes where the call UI is already visible and the bubble would be redundant
-const DIALER_ROUTES = ['/dialer', '/campaigns/'];
+const DIALER_EXACT = '/dialer';
 
 export default function ActiveCallBubble() {
   const {
@@ -25,8 +25,10 @@ export default function ActiveCallBubble() {
 
   const isOnCall = ['trying', 'ringing', 'active'].includes(primaryCallState);
 
-  // Don't show when on a dialer page (the call UI is already visible there)
-  const isOnDialerPage = DIALER_ROUTES.some((route) => location.pathname.startsWith(route));
+  // Only hide when on the exact dialer page or a campaign's /dial page
+  const isOnDialerPage =
+    location.pathname === DIALER_EXACT ||
+    location.pathname.endsWith('/dial');
 
   const visible = isOnCall && !isOnDialerPage && !!activeCallRoute;
 

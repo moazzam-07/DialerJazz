@@ -15,10 +15,9 @@ export default function ManualDialerPage() {
   const [numberInput, setNumberInput] = useState('');
   const [showDTMF, setShowDTMF] = useState(false);
 
-  // Track this route for the ActiveCallBubble
+  // Track this route for the ActiveCallBubble — don't clear on unmount
   useEffect(() => {
     telnyx.setActiveCallRoute('/dialer');
-    return () => { telnyx.setActiveCallRoute(null); };
   }, []);
 
   const handleDial = () => {

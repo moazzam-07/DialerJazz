@@ -107,12 +107,13 @@ export default function CampaignDialerPage() {
     loadData();
   }, [loadData]);
 
-  // Track this route for the ActiveCallBubble (so it knows where to return)
+  // Track this route for the ActiveCallBubble (so it knows where to return).
+  // Deliberately NOT clearing on unmount — the route must persist after
+  // navigation so the bubble can show it. It gets cleared when the call ends.
   useEffect(() => {
     if (campaignId) {
       telnyx.setActiveCallRoute(`/campaigns/${campaignId}/dial`);
     }
-    return () => { telnyx.setActiveCallRoute(null); };
   }, [campaignId]);
 
   // Handle call lifecycle — show disposition after ANY call attempt ends
