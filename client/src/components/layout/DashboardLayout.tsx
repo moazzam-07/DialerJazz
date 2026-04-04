@@ -55,6 +55,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     }
   };
 
+  // Global audio playback — keeps call audio alive across page navigation
+  const { primaryCall } = useTelnyxContext();
+
   return (
     <div className="min-h-screen bg-[#0F0F11] flex overflow-hidden text-white">
       {/* Global call overlays */}
@@ -62,6 +65,18 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       <IncomingCallBanner />
       <HeldCallBubble />
       <ActiveCallBubble />
+
+      {/* Global audio element — lives outside any page so stream persists */}
+      {primaryCall?.remoteStream && (
+        <audio
+          autoPlay
+          ref={(el) => {
+            if (el && primaryCall?.remoteStream) {
+              el.srcObject = primaryCall.remoteStream;
+            }
+          }}
+        />
+      )}
       {/* Mobile Sidebar Overlay */}
       {isMobileMenuOpen && (
         <div 
