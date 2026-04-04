@@ -110,8 +110,9 @@ export default function CampaignDialerPage() {
   // Track this route for the ActiveCallBubble (so it knows where to return).
   // Deliberately NOT clearing on unmount — the route must persist after
   // navigation so the bubble can show it. It gets cleared when the call ends.
+  const isOnCall = ['trying', 'ringing', 'active'].includes(telnyx.primaryCallState);
   useEffect(() => {
-    if (campaignId) {
+    if (campaignId && !isOnCall) {
       telnyx.setActiveCallRoute(`/campaigns/${campaignId}/dial`);
     }
   }, [campaignId]);
