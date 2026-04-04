@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,6 +13,10 @@ import {
   Menu,
   Clock,
 } from 'lucide-react';
+import IncomingCallOverlay from '@/components/IncomingCallOverlay';
+import IncomingCallBanner from '@/components/IncomingCallBanner';
+import HeldCallBubble from '@/components/HeldCallBubble';
+import { useTelnyxContext } from '@/contexts/TelnyxContext';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -33,6 +37,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  // Initialize Telnyx SIP connection once on layout mount
+  const { initConnection, connectionStatus } = useTelnyxContext();
+  useEffect(() => {
+    if (connectionStatus === 'disconnected') {
+      initConnection();
+    }
+  }, []);
+
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -44,6 +56,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   return (
     <div className="min-h-screen bg-[#0F0F11] flex overflow-hidden text-white">
+      {/* Global call overlays */}
+      <IncomingCallOverlay />
+      <IncomingCallBanner />
+      <HeldCallBubble />
       {/* Mobile Sidebar Overlay */}
       {isMobileMenuOpen && (
         <div 

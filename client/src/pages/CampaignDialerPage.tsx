@@ -15,10 +15,10 @@ import {
   Edit3
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { callsApi, leadsApi, campaignsApi, settingsApi, telnyxApi } from '@/lib/api';
+import { callsApi, leadsApi, campaignsApi } from '@/lib/api';
 import type { Lead, Campaign } from '@/lib/api';
-import { useTelnyxCall } from '@/hooks/useTelnyxCall';
-import type { CallState } from '@/hooks/useTelnyxCall';
+import { useTelnyxContext } from '@/contexts/TelnyxContext';
+import type { CallState } from '@/contexts/TelnyxContext';
 import CallControls from '@/components/CallControls';
 import InCallHUD from '@/components/InCallHUD';
 import DispositionOverlay from '@/components/DispositionOverlay';
@@ -56,11 +56,8 @@ export default function CampaignDialerPage() {
   const [isDisposing, setIsDisposing] = useState(false);
   const [showDTMF, setShowDTMF] = useState(false);
   const [notes, setNotes] = useState('');
-  
-  const [sipConfigured, setSipConfigured] = useState(false);
-
-  // Telnyx
-  const telnyx = useTelnyxCall();
+  // Telnyx (from global context — connection managed by DashboardLayout)
+  const telnyx = useTelnyxContext();
   const prevCallState = useRef<CallState>('idle');
 
   // Load backend data
@@ -69,10 +66,9 @@ export default function CampaignDialerPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const [campaignRes, leadsRes, settingsRes] = await Promise.all([
+      const [campaignRes, leadsRes] = await Promise.all([
         campaignsApi.get(campaignId),
         leadsApi.listByCampaign(campaignId, { limit: 500 }),
-        settingsApi.get(),
       ]);
       setCampaign(campaignRes.data as Campaign);
 
@@ -89,36 +85,9 @@ export default function CampaignDialerPage() {
       const savedLeadId = localStorage.getItem(`dialer_lead_${campaignId}`);
       if (savedLeadId) {
         const idx = undialedLeads.findIndex(l => l.id === savedLeadId);
-        // If found, resume there. If lead was called (no longer in list), start at 0.
         setCurrentIndex(idx >= 0 ? idx : 0);
       } else {
         setCurrentIndex(0);
-      }
-
-      const settings = settingsRes.data;
-      if (!settings?.telnyx_sip_login && !settings?.telnyx_api_key) return;
-
-      setSipConfigured(true);
-
-      // Strategy: Try JWT token first (secure), fall back to raw SIP creds
-      try {
-        const tokenRes = await telnyxApi.getToken();
-        if (tokenRes.data?.token) {
-          telnyx.connectWithToken(tokenRes.data.token, settings.telnyx_caller_number);
-          return;
-        }
-      } catch {
-        // Token endpoint failed — fall back to raw SIP credentials
-        console.warn('[CampaignDialer] JWT token fetch failed, falling back to SIP credentials');
-      }
-
-      // Fallback: raw SIP login/password
-      if (settings?.telnyx_sip_login && settings?.telnyx_sip_password) {
-        telnyx.connect(
-          settings.telnyx_sip_login,
-          settings.telnyx_sip_password,
-          settings.telnyx_caller_number
-        );
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to load campaign';
@@ -131,19 +100,18 @@ export default function CampaignDialerPage() {
 
   useEffect(() => {
     loadData();
-    return () => telnyx.disconnect();
   }, [loadData]);
 
   // Handle call lifecycle — show disposition after ANY call attempt ends
   useEffect(() => {
     const wasCallAttempt = ['trying', 'ringing', 'active'].includes(prevCallState.current);
-    if (wasCallAttempt && telnyx.callState === 'done') {
+    if (wasCallAttempt && telnyx.primaryCallState === 'done') {
       // Call ended (whether connected or not) -> Show disposition overlay
       setShowDisposition(true);
       setShowDTMF(false);
     }
-    prevCallState.current = telnyx.callState;
-  }, [telnyx.callState]);
+    prevCallState.current = telnyx.primaryCallState;
+  }, [telnyx.primaryCallState]);
 
   useEffect(() => {
     if (telnyx.sipError) toast.error(telnyx.sipError, { duration: 5000 });
@@ -157,7 +125,7 @@ export default function CampaignDialerPage() {
 
   const handleDial = () => {
     if (!currentLead) return;
-    if (!sipConfigured) return toast.error('Configure Telnyx SIP in Connectors first.');
+    if (!telnyx.sipConfigured) return toast.error('Configure Telnyx SIP in Connectors first.');
     if (telnyx.connectionStatus !== 'registered') return toast.error('Connecting...');
     telnyx.dial(currentLead.phone);
   };
@@ -174,7 +142,7 @@ export default function CampaignDialerPage() {
       const dispValue = DISPOSITIONS.find(d => d.label === dispositionLabel)?.value || 'answered';
       
       // Get call duration - ensure it's a valid number
-      const callDuration = typeof telnyx.callDuration === 'number' ? telnyx.callDuration : 0;
+      const callDuration = typeof telnyx.primaryCallDuration === 'number' ? telnyx.primaryCallDuration : 0;
       console.log('[CampaignDialer] Saving call - duration:', callDuration, 'disposition:', dispValue);
       
       // Log the full call event, duration, and disposition to our new calls API
@@ -334,7 +302,7 @@ export default function CampaignDialerPage() {
   }
 
   // -- Main Dialer Card Stack UI --
-  const isInCall = ['trying', 'ringing', 'active'].includes(telnyx.callState);
+  const isInCall = ['trying', 'ringing', 'active'].includes(telnyx.primaryCallState);
 
   return (
     <div className="flex flex-col h-[calc(100vh-80px)] overflow-hidden bg-black animate-in fade-in duration-700">
@@ -437,7 +405,7 @@ export default function CampaignDialerPage() {
 
               {/* Call Controls (Dial / Hang Up / DTMF Toggle) */}
               <CallControls
-                callState={telnyx.callState}
+                callState={telnyx.primaryCallState}
                 dialerMode={dialerSessionMode!}
                 onDial={handleDial}
                 onHangUp={handleHangUp}
@@ -446,9 +414,9 @@ export default function CampaignDialerPage() {
 
               {/* In-Call HUD (Timer + Visualizer + DTMF) */}
               <InCallHUD
-                callState={telnyx.callState}
-                callDuration={telnyx.callDuration}
-                remoteStream={telnyx.activeCall?.remoteStream || null}
+                callState={telnyx.primaryCallState}
+                callDuration={telnyx.primaryCallDuration}
+                remoteStream={telnyx.primaryCall?.remoteStream || null}
                 showDTMF={showDTMF}
                 onSendDTMF={telnyx.sendDTMF}
               />
@@ -471,8 +439,8 @@ export default function CampaignDialerPage() {
       </main>
 
       {/* Hidden audio element for remote stream playback */}
-      {telnyx.activeCall?.remoteStream && (
-        <audio autoPlay ref={(el) => { if (el && telnyx.activeCall?.remoteStream) { el.srcObject = telnyx.activeCall.remoteStream; } }} />
+      {telnyx.primaryCall?.remoteStream && (
+        <audio autoPlay ref={(el) => { if (el && telnyx.primaryCall?.remoteStream) { el.srcObject = telnyx.primaryCall.remoteStream; } }} />
       )}
     </div>
   );
