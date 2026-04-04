@@ -251,7 +251,7 @@ export function TelnyxProvider({ children }: { children: ReactNode }) {
       }
 
       // ── Primary call updates ─────────────────────────────────────
-      if (['trying', 'requesting'].includes(state)) {
+      if (['new', 'connecting', 'trying', 'requesting'].includes(state)) {
         primaryCallRef.current = call;
         setPrimaryCall(call);
         setPrimaryCallState('trying');
