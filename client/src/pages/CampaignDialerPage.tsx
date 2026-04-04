@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { motion, useAnimation } from 'framer-motion';
 import type { PanInfo } from 'framer-motion';
 import {
@@ -38,10 +38,9 @@ const DISPOSITIONS: { value: Disposition; label: string; color: string; emoji: s
 
 
 
-export default function DialerPage() {
-  const [searchParams] = useSearchParams();
+export default function CampaignDialerPage() {
+  const { id: campaignId } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const campaignId = searchParams.get('campaign');
 
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -110,7 +109,7 @@ export default function DialerPage() {
         }
       } catch {
         // Token endpoint failed — fall back to raw SIP credentials
-        console.warn('[DialerPage] JWT token fetch failed, falling back to SIP credentials');
+        console.warn('[CampaignDialer] JWT token fetch failed, falling back to SIP credentials');
       }
 
       // Fallback: raw SIP login/password
@@ -176,7 +175,7 @@ export default function DialerPage() {
       
       // Get call duration - ensure it's a valid number
       const callDuration = typeof telnyx.callDuration === 'number' ? telnyx.callDuration : 0;
-      console.log('[DialerPage] Saving call - duration:', callDuration, 'disposition:', dispValue);
+      console.log('[CampaignDialer] Saving call - duration:', callDuration, 'disposition:', dispValue);
       
       // Log the full call event, duration, and disposition to our new calls API
       await callsApi.log({

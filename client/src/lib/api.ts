@@ -187,8 +187,8 @@ export const leadsApi = {
 
 export interface CallLog {
   id: string;
-  lead_id: string;
-  campaign_id: string;
+  lead_id: string | null;
+  campaign_id: string | null;
   provider: string;
   direction: string;
   from_number: string;
@@ -220,7 +220,7 @@ export interface CallStats {
 }
 
 export const callsApi = {
-  log: (payload: { lead_id: string; campaign_id: string; duration_seconds: number; status: string; disposition: string; notes?: string }) =>
+  log: (payload: { lead_id: string | null; campaign_id: string | null; duration_seconds: number; status: string; disposition: string; notes?: string }) =>
     apiFetch<{ data: unknown }>('/calls/log', {
       method: 'POST',
       body: JSON.stringify(payload),

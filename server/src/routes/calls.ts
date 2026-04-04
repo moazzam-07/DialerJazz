@@ -7,8 +7,8 @@ const router = Router();
 
 // ── Zod Validation Schema ──────────────────────────────────────────
 const callLogSchema = z.object({
-  lead_id: z.string().uuid('lead_id must be a valid UUID'),
-  campaign_id: z.string().uuid('campaign_id must be a valid UUID').optional().or(z.literal('')),
+  lead_id: z.string().uuid('lead_id must be a valid UUID').optional().nullable(),
+  campaign_id: z.string().uuid('campaign_id must be a valid UUID').optional().nullable().or(z.literal('')),
   duration_seconds: z.number().int().min(0).default(0),
   status: z.string().min(1).max(50).default('completed'),
   disposition: z.string().min(1).max(50).optional().nullable(),
@@ -55,7 +55,7 @@ router.post('/log', requireAuth, async (req: AuthenticatedRequest, res, next) =>
     console.log('[calls/log] Inserted log:', logData);
 
     // Step 1: Check if this lead was previously uncalled (status is 'new' or 'calling')
-    if (validated.disposition) {
+    if (validated.lead_id && validated.campaign_id && validated.disposition) {
       const { data: leadData } = await req.db!.database
         .from('leads')
         .select('status')

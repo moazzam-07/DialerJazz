@@ -114,7 +114,7 @@ export default function CampaignsPage() {
             <CampaignCard 
               key={campaign.id} 
               campaign={campaign} 
-              onStartDialing={(id) => navigate(`/dialer?campaign=${id}`)} 
+              onStartDialing={(id) => navigate(`/campaigns/${id}/dial`)} 
               onUpdated={fetchCampaigns} 
             />
           ))}

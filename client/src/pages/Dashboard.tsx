@@ -147,7 +147,7 @@ export default function Dashboard() {
               <CampaignCard 
                 key={campaign.id} 
                 campaign={campaign} 
-                onStartDialing={(id) => navigate(`/dialer?campaign=${id}`)}
+                onStartDialing={(id) => navigate(`/campaigns/${id}/dial`)}
                 onUpdated={() => { fetchCampaigns(); fetchStats(); }}
               />
             ))}
