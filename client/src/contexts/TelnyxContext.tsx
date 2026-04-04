@@ -102,6 +102,9 @@ export function TelnyxProvider({ children }: { children: ReactNode }) {
   const [isMuted, setIsMuted] = useState(false);
   const [isHeld, setIsHeld] = useState(false);
 
+  // Track call IDs we've intentionally hung up to ignore their zombie notifications
+  const hungUpCallIdsRef = useRef<Set<string>>(new Set());
+
   // Incoming call state
   const incomingCallRef = useRef<Call | null>(null);
   const [incomingCall, setIncomingCall] = useState<Call | null>(null);
@@ -163,6 +166,16 @@ export function TelnyxProvider({ children }: { children: ReactNode }) {
       const callId = call.id;
 
       console.log(`[TelnyxContext] Notification: id=${callId}, direction=${direction}, state=${state}`);
+
+      // ── Ignore zombie notifications from calls we already hung up ──
+      if (hungUpCallIdsRef.current.has(callId)) {
+        console.log(`[TelnyxContext] Ignoring zombie notification for hung-up call ${callId}`);
+        // Clean up the ID once we get a terminal state
+        if (['done', 'hangup', 'destroy'].includes(state)) {
+          hungUpCallIdsRef.current.delete(callId);
+        }
+        return;
+      }
 
       // ── INBOUND RINGING → track as incoming ──────────────────────
       if (direction === 'inbound' && state === 'ringing') {
@@ -430,6 +443,10 @@ export function TelnyxProvider({ children }: { children: ReactNode }) {
 
   const hangup = useCallback(() => {
     if (primaryCallRef.current) {
+      // Record this call ID so we ignore any zombie notifications from the SDK
+      if (primaryCallRef.current.id) {
+        hungUpCallIdsRef.current.add(primaryCallRef.current.id);
+      }
       primaryCallRef.current.hangup();
     }
     stopPrimaryTimer();
