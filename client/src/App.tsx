@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { useAuth } from './contexts/AuthContext';
 import { TelnyxProvider } from './contexts/TelnyxContext';
@@ -31,9 +31,16 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+/**
+ * ProtectedLayout — a layout route that wraps ALL authenticated pages.
+ *
+ * TelnyxProvider and DashboardLayout live here so the SIP WebSocket
+ * connection persists across route changes (Dashboard → Campaigns → Dialer).
+ * Without this, every navigation would disconnect and reconnect the socket.
+ */
+function ProtectedLayout() {
   const { user, isLoading } = useAuth();
-  
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center">
@@ -41,23 +48,17 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
       </div>
     );
   }
-  
+
   if (!user) {
     return <Navigate to="/login" replace />;
   }
-  
-  return <>{children}</>;
-};
 
-function ProtectedPage({ children }: { children: React.ReactNode }) {
   return (
-    <ProtectedRoute>
-      <TelnyxProvider>
-        <DashboardLayout>
-          {children}
-        </DashboardLayout>
-      </TelnyxProvider>
-    </ProtectedRoute>
+    <TelnyxProvider>
+      <DashboardLayout>
+        <Outlet />
+      </DashboardLayout>
+    </TelnyxProvider>
   );
 }
 
@@ -68,14 +69,18 @@ function App() {
       <Routes>
         <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
         <Route path="/" element={<Navigate to="/login" replace />} />
-        <Route path="/dashboard" element={<ProtectedPage><Dashboard /></ProtectedPage>} />
-        <Route path="/campaigns" element={<ProtectedPage><CampaignsPage /></ProtectedPage>} />
-        <Route path="/campaigns/:id/dial" element={<ProtectedPage><CampaignDialerPage /></ProtectedPage>} />
-        <Route path="/leads" element={<ProtectedPage><LeadsPage /></ProtectedPage>} />
-        <Route path="/call-logs" element={<ProtectedPage><CallLogsPage /></ProtectedPage>} />
-        <Route path="/connectors" element={<ProtectedPage><ConnectorsPage /></ProtectedPage>} />
-        <Route path="/dialer" element={<ProtectedPage><ManualDialerPage /></ProtectedPage>} />
-        <Route path="/settings" element={<ProtectedPage><SettingsPage /></ProtectedPage>} />
+
+        {/* All authenticated routes share a single TelnyxProvider + DashboardLayout */}
+        <Route element={<ProtectedLayout />}>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/campaigns" element={<CampaignsPage />} />
+          <Route path="/campaigns/:id/dial" element={<CampaignDialerPage />} />
+          <Route path="/leads" element={<LeadsPage />} />
+          <Route path="/call-logs" element={<CallLogsPage />} />
+          <Route path="/connectors" element={<ConnectorsPage />} />
+          <Route path="/dialer" element={<ManualDialerPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+        </Route>
       </Routes>
     </div>
   );

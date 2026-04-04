@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import AudioVisualizer from './AudioVisualizer';
 import DTMFKeypad from './DTMFKeypad';
-import type { CallState } from '@/hooks/useTelnyxCall';
+import type { CallState } from '@/contexts/TelnyxContext';
 
 interface InCallHUDProps {
   callState: CallState;

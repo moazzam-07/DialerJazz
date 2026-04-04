@@ -1,5 +1,5 @@
 import { Phone, PhoneOff, Hash } from 'lucide-react';
-import type { CallState } from '@/hooks/useTelnyxCall';
+import type { CallState } from '@/contexts/TelnyxContext';
 
 interface CallControlsProps {
   callState: CallState;
