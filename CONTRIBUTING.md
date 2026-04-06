@@ -9,7 +9,7 @@ The following is a set of guidelines for contributing to DialerJazz. These are m
 1.  **Fork the repo** and create your branch from `main`.
 2.  If you've added code that should be tested, **add tests**.
 3.  If you've changed APIs, **update the documentation**.
-4.  Ensure the test suite passes locally (`npm test` — coming soon!).
+4.  Ensure the test suite passes locally (`cd server && npm test`).
 5.  Make sure your code lints correctly.
 
 ## Pull Request Process
@@ -23,10 +23,41 @@ The following is a set of guidelines for contributing to DialerJazz. These are m
 
 -   `npm run install:all` to install dependencies across the monorepo.
 -   `npm run dev` to start the frontend and backend servers concurrently.
+-   `cd server && npm test` to run the backend test suite (Vitest).
 
-Be mindful of our architecture: UI logic belongs in `/client`, while complex business logic and dialing orchestrations belong in `/server`.
+### Project Structure
+
+```
+DialerJazz/
+├── client/          # React + Vite + TypeScript frontend
+│   └── src/
+│       ├── components/   # Reusable UI components
+│       ├── contexts/     # React contexts (Auth, Telnyx)
+│       ├── pages/        # Route-level page components
+│       └── lib/          # Utilities (api.ts, insforge.ts)
+├── server/          # Node.js + Express + TypeScript backend
+│   └── src/
+│       ├── routes/       # API route handlers
+│       ├── middleware/   # Auth, error handling
+│       └── services/     # Business logic
+└── docs/plans/      # Project documentation & planning
+```
+
+Be mindful of our architecture: UI logic belongs in `/client`, while API routes and business logic belong in `/server`.
 
 ## Code Style
 
 -   We use `Prettier`. Please ensure your editor runs Prettier on save, or run it manually before committing your code.
--   Variables and functions should use `camelCase`. Files returning components should be `PascalCase.tsx`.
+-   Variables and functions should use `camelCase`. Files returning React components should be `PascalCase.tsx`.
+-   CSS uses Tailwind CSS 3.4. Do not upgrade to v4.
+
+## Current Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | React + Vite + TypeScript |
+| UI | Tailwind CSS 3.4, shadcn/ui, Framer Motion |
+| Backend | Node.js + Express + TypeScript |
+| Database/Auth | InsForge (PostgreSQL BaaS) |
+| Telephony | Telnyx WebRTC SDK |
+| Deployment | Render (Docker) |
