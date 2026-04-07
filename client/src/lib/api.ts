@@ -14,6 +14,26 @@ export function setApiToken(token: string | null) {
   cachedToken = token;
 }
 
+/** Standardized pagination metadata returned by all list endpoints. */
+export interface PaginationMeta {
+  total: number;
+  page: number;
+  per_page: number;
+  total_pages: number;
+}
+
+/** Standardized paginated API response. */
+export interface PaginatedResponse<T> {
+  data: T[];
+  meta: PaginationMeta;
+}
+
+/** Pagination query params accepted by list endpoints. */
+export interface PaginationParams {
+  page?: number;
+  per_page?: number;
+}
+
 /**
  * Authenticated fetch wrapper for Jazz Caller backend API.
  * Uses the cached access token set by AuthContext.
@@ -21,7 +41,7 @@ export function setApiToken(token: string | null) {
 async function apiFetch<T = unknown>(
   endpoint: string,
   options: RequestInit = {}
-): Promise<{ data: T; meta?: Record<string, unknown> }> {
+): Promise<{ data: T; meta?: PaginationMeta }> {
   let token = cachedToken;
 
   // If no cached token, try one refresh as fallback
@@ -99,7 +119,13 @@ export const statsApi = {
 };
 
 export const campaignsApi = {
-  list: () => apiFetch<Campaign[]>('/campaigns'),
+  list: (params?: PaginationParams) => {
+    const query = new URLSearchParams();
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.per_page) query.set('per_page', String(params.per_page));
+    const qs = query.toString();
+    return apiFetch<Campaign[]>(qs ? `/campaigns?${qs}` : '/campaigns') as Promise<PaginatedResponse<Campaign>>;
+  },
   
   get: (id: string) => apiFetch<Campaign>(`/campaigns/${id}`),
   
@@ -153,12 +179,12 @@ export interface Lead {
 }
 
 export const leadsApi = {
-  listAll: (params?: { limit?: number; offset?: number }) => {
+  listAll: (params?: PaginationParams) => {
     const query = new URLSearchParams();
-    if (params?.limit) query.append('limit', params.limit.toString());
-    if (params?.offset) query.append('offset', params.offset.toString());
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.per_page) query.set('per_page', String(params.per_page));
     const qs = query.toString();
-    return apiFetch<Lead[]>(qs ? `/leads?${qs}` : '/leads');
+    return apiFetch<Lead[]>(qs ? `/leads?${qs}` : '/leads') as Promise<PaginatedResponse<Lead>>;
   },
 
   listByCampaign: (campaignId: string, params?: { status?: string; limit?: number; offset?: number }) => {
@@ -226,14 +252,14 @@ export const callsApi = {
       body: JSON.stringify(payload),
     }),
 
-  list: (params?: { campaign_id?: string; lead_id?: string; limit?: number; offset?: number }) => {
+  list: (params?: { campaign_id?: string; lead_id?: string } & PaginationParams) => {
     const query = new URLSearchParams();
     if (params?.campaign_id) query.set('campaign_id', params.campaign_id);
     if (params?.lead_id) query.set('lead_id', params.lead_id);
-    if (params?.limit) query.set('limit', String(params.limit));
-    if (params?.offset) query.set('offset', String(params.offset));
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.per_page) query.set('per_page', String(params.per_page));
     const qs = query.toString();
-    return apiFetch<CallLog[]>(`/calls${qs ? `?${qs}` : ''}`);
+    return apiFetch<CallLog[]>(`/calls${qs ? `?${qs}` : ''}`) as Promise<PaginatedResponse<CallLog>>;
   },
 
   getStats: (campaign_id?: string) => {

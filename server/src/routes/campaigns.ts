@@ -13,15 +13,30 @@ const createCampaignSchema = z.object({
 
 router.get('/', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
-    const { data, error } = await req.db!
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const perPage = Math.min(100, Math.max(1, Number(req.query.per_page) || 50));
+    const offset = (page - 1) * perPage;
+
+    const { data, count, error } = await req.db!
       .database.from('campaigns')
-      .select('*')
+      .select('*', { count: 'exact' })
       .eq('user_id', req.user.id)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .range(offset, offset + perPage - 1);
 
     if (error) throw new ApiError(500, error.message, 'db_error');
 
-    res.json({ data: data || [] });
+    const total = count || 0;
+
+    res.json({
+      data: data || [],
+      meta: {
+        total,
+        page,
+        per_page: perPage,
+        total_pages: Math.ceil(total / perPage),
+      },
+    });
   } catch (error) {
     next(error);
   }

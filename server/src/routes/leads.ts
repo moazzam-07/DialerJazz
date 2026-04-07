@@ -35,18 +35,30 @@ const bulkLeadsSchema = z.object({
 // Mini-CRM: Fetch all leads globally for this user
 router.get('/', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
-    const { limit = '100', offset = '0' } = req.query;
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const perPage = Math.min(100, Math.max(1, Number(req.query.per_page) || 25));
+    const offset = (page - 1) * perPage;
 
     const { data, count, error } = await req.db!
       .database.from('leads')
       .select('*', { count: 'exact' })
       .eq('user_id', req.user.id)
       .order('created_at', { ascending: false })
-      .range(Number(offset), Number(offset) + Number(limit) - 1);
+      .range(offset, offset + perPage - 1);
 
     if (error) throw new ApiError(500, error.message, 'db_error');
 
-    res.json({ data: data || [], meta: { total: count || 0, count: data?.length || 0 } });
+    const total = count || 0;
+
+    res.json({
+      data: data || [],
+      meta: {
+        total,
+        page,
+        per_page: perPage,
+        total_pages: Math.ceil(total / perPage),
+      },
+    });
   } catch (error) {
     next(error);
   }

@@ -19,7 +19,7 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center">
-        <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        <div className="h-8 w-8 border-2 border-foreground/20 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -44,7 +44,7 @@ function ProtectedLayout() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center">
-        <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        <div className="h-8 w-8 border-2 border-foreground/20 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }

@@ -81,7 +81,7 @@ export default function AudioVisualizer({ mediaStream, color = '#10b981', isActi
   }, [mediaStream, isActive, color]);
 
   if (!mediaStream && !isActive) {
-    return <div className="h-8 w-full bg-[#1A1A1E] rounded animate-pulse" />;
+    return <div className="h-8 w-full bg-surface rounded animate-pulse" />;
   }
 
   return (
