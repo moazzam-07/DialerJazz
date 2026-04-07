@@ -190,7 +190,7 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
     setIsFetchingCrm(true);
     setStep('import_crm');
     try {
-      const { data } = await leadsApi.listAll({ limit: 1000 });
+      const { data } = await leadsApi.listAll({ per_page: 100 });
       setCrmLeads(data);
     } catch (error: any) {
       toast.error(error.message || 'Failed to load CRM leads');

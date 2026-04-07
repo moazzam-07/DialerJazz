@@ -12,7 +12,7 @@ export default function LeadsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const { currentPage, totalPages, setCurrentPage, resetPage, setMeta, perPage } =
+  const { currentPage, totalPages, setCurrentPage, setMeta, perPage } =
     usePagination({ perPage: ITEMS_PER_PAGE });
 
   const fetchLeads = useCallback(async () => {
