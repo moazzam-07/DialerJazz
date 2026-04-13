@@ -6,7 +6,7 @@ import { SessionNavBar } from '@/components/ui/sidebar';
 import TopNav from '@/components/ui/top-nav';
 import IncomingCallBanner from '@/components/IncomingCallBanner';
 import ActiveCallBubble from '@/components/ActiveCallBubble';
-import { useTelnyxContext } from '@/contexts/TelnyxContext';
+import { useVoice } from '@/contexts/VoiceContext';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -15,14 +15,15 @@ interface DashboardLayoutProps {
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
-  // Initialize Telnyx SIP connection once on layout mount
-  const { initConnection, connectionStatus, primaryCall } = useTelnyxContext();
+  // Initialize voice connection once on layout mount
+  const { connectProvider, connectionStatus, primaryCall, activeProvider } = useVoice();
 
   useEffect(() => {
-    if (connectionStatus === 'disconnected') {
-      initConnection();
+    if (connectionStatus === 'disconnected' && !activeProvider) {
+      // Default to telnyx; campaigns will switch if needed
+      connectProvider('telnyx');
     }
-  }, [initConnection, connectionStatus]);
+  }, [connectProvider, connectionStatus, activeProvider]);
 
   return (
     <div className="h-screen bg-white dark:bg-[#0F0F12] flex overflow-hidden text-foreground">

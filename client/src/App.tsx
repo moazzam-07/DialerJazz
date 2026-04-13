@@ -2,6 +2,8 @@ import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { useAuth } from './contexts/AuthContext';
 import { TelnyxProvider } from './contexts/TelnyxContext';
+import { TwilioProvider } from './contexts/TwilioContext';
+import { VoiceContextProvider } from './contexts/VoiceContext';
 import LoginPage from './pages/LoginPage';
 import DashboardLayout from './components/layout/DashboardLayout';
 import Dashboard from './pages/Dashboard';
@@ -55,9 +57,13 @@ function ProtectedLayout() {
 
   return (
     <TelnyxProvider>
-      <DashboardLayout>
-        <Outlet />
-      </DashboardLayout>
+      <TwilioProvider>
+        <VoiceContextProvider>
+          <DashboardLayout>
+            <Outlet />
+          </DashboardLayout>
+        </VoiceContextProvider>
+      </TwilioProvider>
     </TelnyxProvider>
   );
 }

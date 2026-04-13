@@ -17,7 +17,7 @@ import {
 import { toast } from 'sonner';
 import { callsApi, leadsApi, campaignsApi } from '@/lib/api';
 import type { Lead, Campaign } from '@/lib/api';
-import { useTelnyxContext } from '@/contexts/TelnyxContext';
+import { useVoice } from '@/contexts/VoiceContext';
 import type { CallState } from '@/contexts/TelnyxContext';
 import CallControls from '@/components/CallControls';
 import InCallHUD from '@/components/InCallHUD';
@@ -61,8 +61,8 @@ export default function CampaignDialerPage() {
   const [isDisposing, setIsDisposing] = useState(false);
   const [showDTMF, setShowDTMF] = useState(false);
   const [notes, setNotes] = useState('');
-  // Telnyx (from global context — connection managed by DashboardLayout)
-  const telnyx = useTelnyxContext();
+  // Voice (from unified context — delegates to Telnyx or Twilio)
+  const voice = useVoice();
   const prevCallState = useRef<CallState>('idle');
 
   // Load backend data
@@ -110,27 +110,34 @@ export default function CampaignDialerPage() {
   // Track this route for the ActiveCallBubble (so it knows where to return).
   // Deliberately NOT clearing on unmount — the route must persist after
   // navigation so the bubble can show it. It gets cleared when the call ends.
-  const isOnCall = ['trying', 'ringing', 'active'].includes(telnyx.primaryCallState);
+  const isOnCall = ['trying', 'ringing', 'active'].includes(voice.primaryCallState);
   useEffect(() => {
     if (campaignId && !isOnCall) {
-      telnyx.setActiveCallRoute(`/campaigns/${campaignId}/dial`);
+      voice.setActiveCallRoute(`/campaigns/${campaignId}/dial`);
     }
   }, [campaignId]);
+
+  // Auto-connect to campaign's provider when campaign loads
+  useEffect(() => {
+    if (campaign?.provider && voice.activeProvider !== campaign.provider) {
+      voice.connectProvider(campaign.provider);
+    }
+  }, [campaign?.provider]);
 
   // Handle call lifecycle — show disposition after ANY call attempt ends
   useEffect(() => {
     const wasCallAttempt = ['trying', 'ringing', 'active'].includes(prevCallState.current);
-    if (wasCallAttempt && telnyx.primaryCallState === 'done') {
+    if (wasCallAttempt && voice.primaryCallState === 'done') {
       // Call ended (whether connected or not) -> Show disposition overlay
       setShowDisposition(true);
       setShowDTMF(false);
     }
-    prevCallState.current = telnyx.primaryCallState;
-  }, [telnyx.primaryCallState]);
+    prevCallState.current = voice.primaryCallState;
+  }, [voice.primaryCallState]);
 
   useEffect(() => {
-    if (telnyx.sipError) toast.error(telnyx.sipError, { duration: 5000 });
-  }, [telnyx.sipError]);
+    if (voice.sipError) toast.error(voice.sipError, { duration: 5000 });
+  }, [voice.sipError]);
 
   const currentLead = leads[currentIndex];
   // Maintain context
@@ -140,13 +147,13 @@ export default function CampaignDialerPage() {
 
   const handleDial = () => {
     if (!currentLead) return;
-    if (!telnyx.sipConfigured) return toast.error('Configure Telnyx SIP in Connectors first.');
-    if (telnyx.connectionStatus !== 'registered') return toast.error('Connecting...');
-    telnyx.dial(currentLead.phone);
+    if (!voice.sipConfigured) return toast.error('Configure a telephony provider in Connectors first.');
+    if (voice.connectionStatus !== 'registered') return toast.error('Connecting...');
+    voice.dial(currentLead.phone);
   };
 
   const handleHangUp = () => {
-    telnyx.hangup();
+    voice.hangup();
   };
 
   const handleDisposition = async (dispositionLabel: string) => {
@@ -157,7 +164,7 @@ export default function CampaignDialerPage() {
       const dispValue = DISPOSITIONS.find(d => d.label === dispositionLabel)?.value || 'answered';
       
       // Get call duration - ensure it's a valid number
-      const callDuration = typeof telnyx.primaryCallDuration === 'number' ? telnyx.primaryCallDuration : 0;
+      const callDuration = typeof voice.primaryCallDuration === 'number' ? voice.primaryCallDuration : 0;
       console.log('[CampaignDialer] Saving call - duration:', callDuration, 'disposition:', dispValue);
       
       // Log the full call event, duration, and disposition to our new calls API
@@ -167,7 +174,8 @@ export default function CampaignDialerPage() {
         duration_seconds: callDuration,
         status: 'completed',
         disposition: dispValue,
-        notes: notes 
+        notes: notes,
+        provider: campaign?.provider || 'telnyx',
       });
       
       // Update lead status so it won't appear on refresh
@@ -326,7 +334,7 @@ export default function CampaignDialerPage() {
   }
 
   // -- Main Dialer Card Stack UI --
-  const isInCall = ['trying', 'ringing', 'active'].includes(telnyx.primaryCallState);
+  const isInCall = ['trying', 'ringing', 'active'].includes(voice.primaryCallState);
 
   return (
     <div className="flex flex-col h-[calc(100vh-80px)] overflow-hidden bg-black animate-in fade-in duration-700">
@@ -345,7 +353,7 @@ export default function CampaignDialerPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {telnyx.connectionStatus === 'registered' ? (
+          {voice.connectionStatus === 'registered' ? (
              <span className="px-3 py-1 bg-background text-foreground border border-black/10 dark:border-white/10 rounded-full text-xs font-bold leading-none flex items-center gap-1.5 shadow-sm"><div className="h-1.5 w-1.5 rounded-full bg-foreground animate-pulse"/> SIP Registered</span>
           ) : (
              <span className="px-3 py-1 bg-muted text-muted-foreground border border-border rounded-full text-xs font-bold leading-none flex items-center gap-1.5"><Loader2 className="h-3 w-3 animate-spin"/> Connecting</span>
@@ -434,7 +442,7 @@ export default function CampaignDialerPage() {
 
               {/* Call Controls (Dial / Hang Up / DTMF Toggle) */}
               <CallControls
-                callState={telnyx.primaryCallState}
+                callState={voice.primaryCallState}
                 dialerMode={dialerSessionMode!}
                 onDial={handleDial}
                 onHangUp={handleHangUp}
@@ -443,11 +451,11 @@ export default function CampaignDialerPage() {
 
               {/* In-Call HUD (Timer + Visualizer + DTMF) */}
               <InCallHUD
-                callState={telnyx.primaryCallState}
-                callDuration={telnyx.primaryCallDuration}
-                remoteStream={telnyx.primaryCall?.remoteStream || null}
+                callState={voice.primaryCallState}
+                callDuration={voice.primaryCallDuration}
+                remoteStream={voice.primaryCall?.remoteStream || null}
                 showDTMF={showDTMF}
-                onSendDTMF={telnyx.sendDTMF}
+                onSendDTMF={voice.sendDTMF}
               />
 
               {/* Post-Call Disposition Bottom Sheet */}
@@ -468,8 +476,8 @@ export default function CampaignDialerPage() {
       </main>
 
       {/* Hidden audio element for remote stream playback */}
-      {telnyx.primaryCall?.remoteStream && (
-        <audio autoPlay ref={(el) => { if (el && telnyx.primaryCall?.remoteStream) { el.srcObject = telnyx.primaryCall.remoteStream; } }} />
+      {voice.primaryCall?.remoteStream && (
+        <audio autoPlay ref={(el) => { if (el && voice.primaryCall?.remoteStream) { el.srcObject = voice.primaryCall.remoteStream; } }} />
       )}
     </div>
   );

@@ -13,6 +13,7 @@ const callLogSchema = z.object({
   status: z.string().min(1).max(50).default('completed'),
   disposition: z.string().min(1).max(50).optional().nullable(),
   notes: z.string().max(5000).optional().nullable(),
+  provider: z.enum(['telnyx', 'twilio']).default('telnyx'),
 });
 
 // POST /api/calls/log
@@ -35,7 +36,7 @@ router.post('/log', requireAuth, async (req: AuthenticatedRequest, res, next) =>
         user_id: userId,
         lead_id: validated.lead_id,
         campaign_id: validated.campaign_id || null,
-        provider: 'telnyx',
+        provider: validated.provider,
         direction: 'outbound',
         duration_seconds: validated.duration_seconds,
         status: validated.status,

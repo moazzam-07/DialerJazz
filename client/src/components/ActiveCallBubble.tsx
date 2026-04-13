@@ -8,7 +8,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Phone } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useTelnyxContext } from '@/contexts/TelnyxContext';
+import { useVoice } from '@/contexts/VoiceContext';
 
 // Routes where the call UI is already visible and the bubble would be redundant
 const DIALER_EXACT = '/dialer';
@@ -18,7 +18,7 @@ export default function ActiveCallBubble() {
     primaryCallState,
     primaryCallDuration,
     activeCallRoute,
-  } = useTelnyxContext();
+  } = useVoice();
 
   const navigate = useNavigate();
   const location = useLocation();

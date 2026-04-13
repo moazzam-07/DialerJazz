@@ -9,6 +9,8 @@ router.use(requireAuth);
 const createCampaignSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100, 'Name must be under 100 characters'),
   dialer_mode: z.enum(['preview', 'power', 'predictive']).default('preview'),
+  provider: z.enum(['telnyx', 'twilio']).default('telnyx'),
+  caller_number: z.string().optional(),
 });
 
 router.get('/', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
@@ -72,6 +74,8 @@ router.post('/', async (req: AuthenticatedRequest, res: Response, next: NextFunc
         user_id: req.user.id,
         name: body.name,
         dialer_mode: body.dialer_mode,
+        provider: body.provider,
+        caller_number: body.caller_number || null,
         status: 'draft',
       })
       .select()

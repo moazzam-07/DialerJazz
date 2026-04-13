@@ -4,37 +4,37 @@ import { Phone, Delete, Loader2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { callsApi } from '@/lib/api';
-import { useTelnyxContext } from '@/contexts/TelnyxContext';
+import { useVoice } from '@/contexts/VoiceContext';
 import CallControls from '@/components/CallControls';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 export default function ManualDialerPage() {
   const navigate = useNavigate();
-  const telnyx = useTelnyxContext();
+  const voice = useVoice();
 
   const [numberInput, setNumberInput] = useState('');
   const [showDTMF, setShowDTMF] = useState(false);
 
   // Track this route for the ActiveCallBubble — only set if no call is already active
   // (prevents overwriting campaign route when user visits this page mid-call)
-  const isOnCall = ['trying', 'ringing', 'active'].includes(telnyx.primaryCallState);
+  const isOnCall = ['trying', 'ringing', 'active'].includes(voice.primaryCallState);
   useEffect(() => {
     if (!isOnCall) {
-      telnyx.setActiveCallRoute('/dialer');
+      voice.setActiveCallRoute('/dialer');
     }
   }, []);
 
   const handleDial = () => {
-    if (!telnyx.sipConfigured) return toast.error('Configure Telnyx SIP in Connectors first.');
-    if (telnyx.connectionStatus !== 'registered') return toast.error('Connecting...');
+    if (!voice.sipConfigured) return toast.error('Configure a telephony provider in Connectors first.');
+    if (voice.connectionStatus !== 'registered') return toast.error('Connecting...');
     if (numberInput.trim() === '') return toast.error('Please enter a phone number to call.');
-    telnyx.dial(numberInput);
+    voice.dial(numberInput);
   };
 
   const handleHangUp = async () => {
-    const duration = telnyx.primaryCallDuration;
-    telnyx.hangup();
+    const duration = voice.primaryCallDuration;
+    voice.hangup();
     if (duration > 0) {
       try {
         await callsApi.log({
@@ -59,18 +59,18 @@ export default function ManualDialerPage() {
     setNumberInput((prev) => prev.slice(0, -1));
   };
 
-  if (telnyx.error) {
+  if (voice.error) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center max-w-md mx-auto">
         <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
         <h2 className="text-2xl font-bold text-foreground mb-2">Error Loading Dialer</h2>
-        <p className="text-muted-foreground mb-6">{telnyx.error}</p>
+        <p className="text-muted-foreground mb-6">{voice.error}</p>
         <button onClick={() => navigate('/login')} className="bg-muted hover:bg-muted/80 text-foreground px-6 py-2 rounded-xl transition-colors hover:bg-white/20 font-medium">Re-authenticate</button>
       </div>
     );
   }
 
-  const isInCall = ['trying', 'ringing', 'active'].includes(telnyx.primaryCallState);
+  const isInCall = ['trying', 'ringing', 'active'].includes(voice.primaryCallState);
 
   return (
     <div className="flex flex-col h-full bg-background animate-in fade-in duration-700">
@@ -81,7 +81,7 @@ export default function ManualDialerPage() {
           <p className="text-muted-foreground text-sm mt-1">Make direct ad-hoc calls outside of active campaigns.</p>
         </div>
         <div className="flex items-center gap-2">
-          {telnyx.connectionStatus === 'registered' ? (
+          {voice.connectionStatus === 'registered' ? (
              <Badge className="bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 shadow-none border border-emerald-500/20 font-medium py-1">
                <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse mr-2"/> SIP Registered
              </Badge>
@@ -139,7 +139,7 @@ export default function ManualDialerPage() {
               <div className="mt-auto">
                  {isInCall ? (
                    <CallControls
-                      callState={telnyx.primaryCallState}
+                      callState={voice.primaryCallState}
                       dialerMode="click"
                       onDial={() => {}}
                       onHangUp={handleHangUp}
@@ -148,11 +148,11 @@ export default function ManualDialerPage() {
                  ) : (
                    <button
                      onClick={handleDial}
-                     disabled={!telnyx.sipConfigured || telnyx.connectionStatus !== 'registered'}
+                     disabled={!voice.sipConfigured || voice.connectionStatus !== 'registered'}
                      className="w-full h-16 rounded-xl bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground text-primary-foreground font-bold text-xl flex items-center justify-center gap-2 shadow-lg transition-all"
                    >
                      <Phone className="h-5 w-5" />
-                     {telnyx.connectionStatus !== 'registered' ? 'Connecting...' : 'Call'}
+                     {voice.connectionStatus !== 'registered' ? 'Connecting...' : 'Call'}
                    </button>
                  )}
               </div>
@@ -191,8 +191,8 @@ export default function ManualDialerPage() {
       </main>
 
       {/* Hidden audio element for remote stream playback */}
-      {telnyx.primaryCall?.remoteStream && (
-        <audio autoPlay ref={(el) => { if (el && telnyx.primaryCall?.remoteStream) { el.srcObject = telnyx.primaryCall.remoteStream; } }} />
+      {voice.primaryCall?.remoteStream && (
+        <audio autoPlay ref={(el) => { if (el && voice.primaryCall?.remoteStream) { el.srcObject = voice.primaryCall.remoteStream; } }} />
       )}
     </div>
   );

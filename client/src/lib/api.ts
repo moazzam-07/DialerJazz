@@ -107,6 +107,8 @@ export interface Campaign {
   user_id: string;
   name: string;
   dialer_mode: string;
+  provider: 'telnyx' | 'twilio';
+  caller_number?: string;
   status: 'draft' | 'active' | 'paused' | 'completed';
   total_leads: number;
   leads_called: number;
@@ -129,7 +131,7 @@ export const campaignsApi = {
   
   get: (id: string) => apiFetch<Campaign>(`/campaigns/${id}`),
   
-  create: (payload: { name: string; dialer_mode?: string }) =>
+  create: (payload: { name: string; dialer_mode?: string; provider?: string; caller_number?: string }) =>
     apiFetch<Campaign>('/campaigns', {
       method: 'POST',
       body: JSON.stringify(payload),
@@ -246,7 +248,7 @@ export interface CallStats {
 }
 
 export const callsApi = {
-  log: (payload: { lead_id: string | null; campaign_id: string | null; duration_seconds: number; status: string; disposition: string; notes?: string }) =>
+  log: (payload: { lead_id: string | null; campaign_id: string | null; duration_seconds: number; status: string; disposition: string; notes?: string; provider?: string }) =>
     apiFetch<{ data: unknown }>('/calls/log', {
       method: 'POST',
       body: JSON.stringify(payload),
@@ -275,6 +277,13 @@ export interface UserSettings {
   telnyx_sip_login?: string;
   telnyx_sip_password?: string;
   telnyx_caller_number?: string;
+  twilio_account_sid?: string;
+  twilio_auth_token?: string;
+  twilio_api_key?: string;
+  twilio_api_secret?: string;
+  twilio_twiml_app_sid?: string;
+  twilio_caller_number?: string;
+  default_provider?: 'telnyx' | 'twilio';
   updated_at?: string;
 }
 
@@ -300,6 +309,16 @@ export const telnyxApi = {
   /** Fetch a short-lived WebRTC JWT token from the backend */
   getToken: () =>
     apiFetch<{ token: string }>('/telnyx/token', {
+      method: 'POST',
+    }),
+};
+
+// ============ Twilio API ============
+
+export const twilioApi = {
+  /** Fetch a short-lived Twilio Access Token from the backend */
+  getToken: () =>
+    apiFetch<{ token: string }>('/twilio/token', {
       method: 'POST',
     }),
 };

@@ -109,6 +109,8 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
   // Details State
   const [name, setName] = useState('');
   const [dialerMode, setDialerMode] = useState('preview');
+  const [provider, setProvider] = useState<'telnyx' | 'twilio'>('telnyx');
+  const [callerNumber, setCallerNumber] = useState('');
 
   // CRM Import State
   const [crmLeads, setCrmLeads] = useState<Lead[]>([]);
@@ -135,6 +137,8 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
       setStep('details');
       setName('');
       setDialerMode('preview');
+      setProvider('telnyx');
+      setCallerNumber('');
       setSelectedLeadIds(new Set());
       setCsvFile(null);
       setUploadProgress(0);
@@ -205,7 +209,7 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
     
     setIsAssigning(true);
     try {
-      const { data } = await campaignsApi.create({ name: name.trim(), dialer_mode: dialerMode });
+      const { data } = await campaignsApi.create({ name: name.trim(), dialer_mode: dialerMode, provider, caller_number: callerNumber || undefined });
       const newCampaignId = Array.isArray(data) ? data[0].id : (data as any).id;
 
       const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/leads/assign`, {
@@ -379,7 +383,7 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
           setUploadProgress(60);
 
           // 1. Create the campaign
-          const { data } = await campaignsApi.create({ name: name.trim(), dialer_mode: dialerMode });
+          const { data } = await campaignsApi.create({ name: name.trim(), dialer_mode: dialerMode, provider, caller_number: callerNumber || undefined });
           const newCampaignId = Array.isArray(data) ? data[0].id : (data as any).id;
 
           setUploadProgress(80);
@@ -505,6 +509,53 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
               <DialerModeSelect 
                 value={dialerMode}
                 onChange={setDialerMode}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-muted-foreground mb-2">Telephony Provider</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setProvider('telnyx')}
+                  className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${
+                    provider === 'telnyx'
+                      ? 'border-foreground bg-foreground/5'
+                      : 'border-border bg-black/20 hover:border-foreground/30'
+                  }`}
+                >
+                  <div className="h-9 w-9 rounded-lg bg-foreground flex items-center justify-center text-background font-bold text-xs shrink-0">Tx</div>
+                  <div className="text-left">
+                    <p className="text-sm font-semibold text-foreground">Telnyx</p>
+                    <p className="text-xs text-muted-foreground">WebRTC SIP</p>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setProvider('twilio')}
+                  className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${
+                    provider === 'twilio'
+                      ? 'border-foreground bg-foreground/5'
+                      : 'border-border bg-black/20 hover:border-foreground/30'
+                  }`}
+                >
+                  <div className="h-9 w-9 rounded-lg bg-[#F22F46] flex items-center justify-center text-white font-bold text-xs shrink-0">Tw</div>
+                  <div className="text-left">
+                    <p className="text-sm font-semibold text-foreground">Twilio</p>
+                    <p className="text-xs text-muted-foreground">Voice API</p>
+                  </div>
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
+                Caller ID <span className="text-muted-foreground/50 font-normal">(Optional)</span>
+              </label>
+              <input
+                type="text"
+                placeholder="+1234567890"
+                value={callerNumber}
+                onChange={(e) => setCallerNumber(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl bg-black/30 border border-border text-foreground focus:ring-2 focus:ring-foreground/40 focus:border-foreground/40 transition-all outline-none"
               />
             </div>
             <div className="flex justify-end pt-4 border-t border-border">

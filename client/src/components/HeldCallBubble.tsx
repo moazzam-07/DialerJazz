@@ -5,7 +5,7 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { Pause, PhoneForwarded } from 'lucide-react';
-import { useTelnyxContext } from '@/contexts/TelnyxContext';
+import { useVoice } from '@/contexts/VoiceContext';
 
 export default function HeldCallBubble() {
   const {
@@ -13,7 +13,7 @@ export default function HeldCallBubble() {
     heldCallDuration,
     heldCallerNumber,
     hangupAndResume,
-  } = useTelnyxContext();
+  } = useVoice();
 
   const visible = !!heldCall;
 

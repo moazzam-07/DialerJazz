@@ -6,7 +6,7 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { Phone, PhoneOff, User } from 'lucide-react';
-import { useTelnyxContext } from '@/contexts/TelnyxContext';
+import { useVoice } from '@/contexts/VoiceContext';
 
 export default function IncomingCallOverlay() {
   const {
@@ -16,7 +16,7 @@ export default function IncomingCallOverlay() {
     primaryCall,
     answerIncoming,
     rejectIncoming,
-  } = useTelnyxContext();
+  } = useVoice();
 
   // Only show full-screen when incoming + NO active call
   const visible = !!incomingCall && !primaryCall;

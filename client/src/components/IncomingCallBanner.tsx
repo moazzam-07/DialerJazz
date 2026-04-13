@@ -8,7 +8,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Phone, PhoneOff, User, Minimize2 } from 'lucide-react';
-import { useTelnyxContext } from '@/contexts/TelnyxContext';
+import { useVoice } from '@/contexts/VoiceContext';
 
 export default function IncomingCallBanner() {
   const {
@@ -18,7 +18,7 @@ export default function IncomingCallBanner() {
     primaryCall,
     holdAndAnswer,
     rejectIncoming,
-  } = useTelnyxContext();
+  } = useVoice();
 
   const [isMinimized, setIsMinimized] = useState(false);
 
