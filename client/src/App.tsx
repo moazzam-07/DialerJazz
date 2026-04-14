@@ -12,6 +12,7 @@ import LeadsPage from './pages/LeadsPage';
 import SettingsPage from './pages/SettingsPage';
 import ConnectorsPage from './pages/ConnectorsPage';
 import CampaignDialerPage from './pages/CampaignDialerPage';
+import CampaignManagePage from './pages/CampaignManagePage';
 import ManualDialerPage from './pages/ManualDialerPage';
 import CallLogsPage from './pages/CallLogsPage';
 
@@ -80,6 +81,7 @@ function App() {
         <Route element={<ProtectedLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/campaigns" element={<CampaignsPage />} />
+          <Route path="/campaigns/:id/manage" element={<CampaignManagePage />} />
           <Route path="/campaigns/:id/dial" element={<CampaignDialerPage />} />
           <Route path="/leads" element={<LeadsPage />} />
           <Route path="/call-logs" element={<CallLogsPage />} />

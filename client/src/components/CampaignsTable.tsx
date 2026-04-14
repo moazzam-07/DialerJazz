@@ -127,7 +127,7 @@ export default function CampaignsTable({ campaigns }: CampaignsTableProps) {
                 : 0;
                 
               return (
-                 <TableRow key={campaign.id} className="border-black/5 dark:border-white/5 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] cursor-pointer" onClick={() => navigate(`/campaigns/${campaign.id}/dial`)}>
+                 <TableRow key={campaign.id} className="border-black/5 dark:border-white/5 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] cursor-pointer" onClick={() => navigate(`/campaigns/${campaign.id}/manage`)}>
                   {visibleColumns.includes("Campaign") && (
                     <TableCell className="font-semibold whitespace-nowrap">
                       {campaign.name}
@@ -171,9 +171,9 @@ export default function CampaignsTable({ campaigns }: CampaignsTableProps) {
                        <ButtonColorful 
                          onClick={(e) => {
                            e.stopPropagation();
-                           navigate(`/campaigns/${campaign.id}/dial`);
+                           navigate(`/campaigns/${campaign.id}/manage`);
                          }}
-                         label="Select" 
+                         label={campaign.status === 'draft' ? 'Setup' : 'Manage'} 
                          className="h-8 px-3 rounded-lg text-xs" 
                        />
                     </TableCell>

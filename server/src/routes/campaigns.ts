@@ -91,12 +91,52 @@ router.post('/', async (req: AuthenticatedRequest, res: Response, next: NextFunc
 
 router.patch('/:id/status', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
-    const statusSchema = z.object({ status: z.enum(['draft', 'active', 'paused', 'completed']) });
+    const statusSchema = z.object({ status: z.enum(['draft', 'scheduled', 'active', 'paused', 'completed', 'archived']) });
     const { status } = statusSchema.parse(req.body);
 
     const { data, error } = await req.db!
       .database.from('campaigns')
       .update({ status, updated_at: new Date().toISOString() })
+      .eq('id', req.params.id)
+      .eq('user_id', req.user.id)
+      .select()
+      .single();
+
+    if (error) throw new ApiError(500, error.message, 'db_error');
+    res.json({ data });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch('/:id/config', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const configSchema = z.object({
+      dialer_mode: z.enum(['preview', 'power', 'predictive', 'click']).optional(),
+      provider: z.enum(['telnyx', 'twilio']).optional(),
+      caller_number: z.string().optional().nullable(),
+    });
+    const updates = configSchema.parse(req.body);
+
+    // Fetch current status to enforce the lock
+    const { data: campaign, error: fetchError } = await req.db!
+      .database.from('campaigns')
+      .select('status')
+      .eq('id', req.params.id)
+      .eq('user_id', req.user.id)
+      .single();
+
+    if (fetchError || !campaign) {
+      throw new ApiError(404, 'Campaign not found', 'not_found');
+    }
+
+    if (campaign.status !== 'draft') {
+      throw new ApiError(400, 'Cannot modify campaign configuration after it has been launched (status is not draft)', 'bad_request');
+    }
+
+    const { data, error } = await req.db!
+      .database.from('campaigns')
+      .update({ ...updates, updated_at: new Date().toISOString() })
       .eq('id', req.params.id)
       .eq('user_id', req.user.id)
       .select()

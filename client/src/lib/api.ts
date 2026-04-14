@@ -143,6 +143,12 @@ export const campaignsApi = {
       body: JSON.stringify({ status }),
     }),
 
+  updateConfig: (id: string, config: { dialer_mode?: string; provider?: string; caller_number?: string | null }) =>
+    apiFetch<Campaign>(`/campaigns/${id}/config`, {
+      method: 'PATCH',
+      body: JSON.stringify(config),
+    }),
+
   rename: (id: string, name: string) =>
     apiFetch<Campaign>(`/campaigns/${id}/rename`, {
       method: 'PATCH',

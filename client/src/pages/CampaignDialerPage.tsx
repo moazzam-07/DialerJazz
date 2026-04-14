@@ -50,13 +50,7 @@ export default function CampaignDialerPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // New State Flow — restore mode from localStorage so returning to the campaign skips mode selection
-  const [dialerSessionMode, setDialerSessionMode] = useState<DialerMode | null>(
-    () => {
-      const saved = localStorage.getItem(`dialer_mode_${campaignId}`);
-      return (saved === 'power' || saved === 'click') ? saved : null;
-    }
-  );
+  const dialerSessionMode = (campaign?.dialer_mode as DialerMode) || 'click';
   const [showDisposition, setShowDisposition] = useState(false);
   const [isDisposing, setIsDisposing] = useState(false);
   const [showDTMF, setShowDTMF] = useState(false);
@@ -291,47 +285,12 @@ export default function CampaignDialerPage() {
 
   if (leads.length === 0) return <div className="text-center py-40"><h2 className="text-2xl font-bold">All leads dialed!</h2></div>;
 
-  // Helper: persist mode to localStorage when selected
-  const selectDialerMode = (mode: DialerMode) => {
-    setDialerSessionMode(mode);
-    if (campaignId) localStorage.setItem(`dialer_mode_${campaignId}`, mode);
-  };
+
 
   // Helper: check if a lead has already been dialed
   const isLeadDialed = (lead: Lead) => lead.status !== 'new' && lead.status !== 'calling';
 
-  // -- Pre-Dial Selection Screen --
-  if (!dialerSessionMode) {
-    return (
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-4xl mx-auto py-12">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-extrabold tracking-tight text-foreground mb-4">Choose Dialing Mode</h1>
-          <p className="text-xl text-muted-foreground">How do you want to handle these {leads.length} leads?</p>
-        </div>
-        <div className="grid md:grid-cols-2 gap-6">
-          <button onClick={() => selectDialerMode('power')} className="group relative bg-surface border border-black/5 dark:border-white/5 hover:border-black/10 dark:hover:border-white/10 p-10 rounded-[1.5rem] text-left transition-all duration-300 hover:shadow-[0_8px_30px_rgba(0,0,0,0.04)]">
-            <div className="h-16 w-16 bg-foreground text-background shadow-sm rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-              <Zap className="h-8 w-8" />
-            </div>
-            <h2 className="text-2xl font-bold tracking-display text-foreground mb-3">Power Dialer</h2>
-            <p className="text-muted-foreground tracking-body leading-relaxed">
-              Automated high-speed dialing. After selecting a disposition, the system automatically swipes to the next card and dials immediately.
-            </p>
-          </button>
-          
-          <button onClick={() => selectDialerMode('click')} className="group relative bg-surface border border-black/5 dark:border-white/5 hover:border-black/10 dark:hover:border-white/10 p-10 rounded-[1.5rem] text-left transition-all duration-300 hover:shadow-[0_8px_30px_rgba(0,0,0,0.04)]">
-            <div className="h-16 w-16 bg-foreground text-background shadow-sm rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-              <MousePointerClick className="h-8 w-8" />
-            </div>
-            <h2 className="text-2xl font-bold tracking-display text-foreground mb-3">Click-to-Call</h2>
-            <p className="text-muted-foreground tracking-body leading-relaxed">
-              Manual control. Manually click to dial, edit notes after hanging up, and physically swipe left to proceed when you are fully ready.
-            </p>
-          </button>
-        </div>
-      </motion.div>
-    );
-  }
+
 
   // -- Main Dialer Card Stack UI --
   const isInCall = ['trying', 'ringing', 'active'].includes(voice.primaryCallState);
