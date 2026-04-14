@@ -8,6 +8,8 @@ import IncomingCallBanner from '@/components/IncomingCallBanner';
 import ActiveCallBubble from '@/components/ActiveCallBubble';
 import { useVoice } from '@/contexts/VoiceContext';
 
+import { settingsApi } from '@/lib/api';
+
 interface DashboardLayoutProps {
   children: ReactNode;
 }
@@ -19,10 +21,24 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { connectProvider, connectionStatus, primaryCall, activeProvider } = useVoice();
 
   useEffect(() => {
-    if (connectionStatus === 'disconnected' && !activeProvider) {
-      // Default to telnyx; campaigns will switch if needed
-      connectProvider('telnyx');
+    let mounted = true;
+    
+    async function initTelephony() {
+      if (connectionStatus === 'disconnected' && !activeProvider) {
+        try {
+          const { data } = await settingsApi.get();
+          if (mounted) {
+             const defaultProv = data?.default_provider || 'telnyx';
+             connectProvider(defaultProv);
+          }
+        } catch (e) {
+          if (mounted) connectProvider('telnyx'); // fallback
+        }
+      }
     }
+    
+    initTelephony();
+    return () => { mounted = false; };
   }, [connectProvider, connectionStatus, activeProvider]);
 
   return (
