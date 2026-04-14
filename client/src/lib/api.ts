@@ -301,6 +301,12 @@ export const settingsApi = {
       method: 'POST',
       body: JSON.stringify({ apiKey }),
     }),
+
+  verifyTwilio: (accountSid: string, authToken: string) =>
+    apiFetch<{ success: boolean; message?: string }>('/settings/verify-twilio', {
+      method: 'POST',
+      body: JSON.stringify({ accountSid, authToken }),
+    }),
 };
 
 // ============ Telnyx API ============

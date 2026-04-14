@@ -116,18 +116,9 @@ export default function ConnectorsPage() {
     }
     setIsVerifyingTwilio(true);
     try {
-      const response = await fetch('/api/settings/verify-twilio', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('access_token')}` },
-        body: JSON.stringify({ accountSid: twilioAccountSid, authToken: twilioAuthToken }),
-      });
-      const result = await response.json();
-      if (response.ok) {
-        toast.success(result.data?.message || 'Twilio credentials verified!');
-        fetchSettings();
-      } else {
-        toast.error(result.error?.message || 'Invalid Twilio credentials');
-      }
+      const result = await settingsApi.verifyTwilio(twilioAccountSid, twilioAuthToken);
+      toast.success(result.data?.message || 'Twilio credentials verified!');
+      fetchSettings();
     } catch (error: unknown) {
       toast.error(error instanceof Error ? error.message : 'Verification failed');
     } finally {
