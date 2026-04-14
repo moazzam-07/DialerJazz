@@ -2,10 +2,16 @@ import express, { Router, Request, Response } from 'express';
 import twilio from 'twilio';
 import { requireAuth, AuthenticatedRequest } from '../middleware/auth.js';
 import { ApiError } from '../middleware/errorHandler.js';
+import { getInsforgeClient } from '../lib/insforge.js';
 
 const router = Router();
 const { AccessToken } = twilio.jwt;
 const { VoiceGrant } = AccessToken;
+
+// Lazy-initialize Twilio REST client (requires account credentials)
+function getTwilioClient(accountSid: string, authToken: string) {
+  return twilio(accountSid, authToken);
+}
 
 // ── POST /api/twilio/token ─────────────────────────────────────────
 // Authenticated. Generates a short-lived Twilio Access Token with VoiceGrant.
@@ -57,22 +63,65 @@ router.post('/token', requireAuth, async (req: AuthenticatedRequest, res, next) 
 // Unauthenticated TwiML webhook. Twilio calls this when a browser
 // client initiates an outbound call via device.connect().
 // Returns TwiML XML instructing Twilio how to route the call.
-router.post('/voice', express.urlencoded({ extended: false }), (req: Request, res: Response) => {
+router.post('/voice', express.urlencoded({ extended: false }), async (req: Request, res: Response) => {
   try {
     const twiml = new twilio.twiml.VoiceResponse();
     const to = req.body.To;
     const from = req.body.From || req.body.Caller;
+    const callSid = req.body.CallSid;
 
-    console.log(`[Twilio Voice Webhook] To=${to}, From=${from}`);
+    console.log(`[Twilio Voice Webhook] To=${to}, From=${from}, CallSid=${callSid}`);
+    console.log(`[Twilio Voice Webhook] Raw body:`, JSON.stringify(req.body));
+
+    let verifiedCallerId: string | null = null;
+    let userId: string | null = null;
+
+    // Extract user identity from From field (Twilio Voice SDK sends "client:user_123")
+    const clientMatch = from?.match(/^client:(.+)$/);
+    if (clientMatch) {
+      const identity = clientMatch[1];
+      // Identity format is "user_<id>" from token generation
+      const userIdMatch = identity.match(/^user_(\d+)$/);
+      if (userIdMatch) {
+        userId = userIdMatch[1];
+        console.log(`[Twilio Voice Webhook] Identified user: ${userId} from identity: ${identity}`);
+
+        // Use admin client to fetch user's verified Twilio caller number from settings
+        const adminDb = getInsforgeClient();
+        const { data: settings, error } = await adminDb.database
+          .from('user_settings')
+          .select('twilio_caller_number')
+          .eq('user_id', userId)
+          .single();
+
+        if (settings?.twilio_caller_number) {
+          verifiedCallerId = settings.twilio_caller_number;
+          console.log(`[Twilio Voice Webhook] Using verified caller ID from settings: ${verifiedCallerId}`);
+        } else {
+          console.error(`[Twilio Voice Webhook] No twilio_caller_number found for user ${userId}`);
+        }
+      }
+    }
+
+    // Use verified caller ID from settings, fallback to SDK's From if extraction failed
+    const callerId = verifiedCallerId || from;
+
+    // Validate callerId - Twilio requires a verified phone number for outbound calls
+    if (!callerId || !/^\+?\d{10,15}$/.test(callerId.replace(/[\s\-()]/g, ''))) {
+      console.error('[Twilio Voice Webhook] Missing or invalid callerId:', callerId);
+      twiml.say('Caller ID not configured. Please set a verified phone number in your connector settings.');
+      res.type('text/xml').status(400).send(twiml.toString());
+      return;
+    }
 
     if (to) {
       // If "To" looks like a phone number, dial it
       if (/^[\d+\-() ]+$/.test(to)) {
-        const dial = twiml.dial({ callerId: from });
+        const dial = twiml.dial({ callerId });
         dial.number(to);
       } else {
         // Could be a client identity — dial as client
-        const dial = twiml.dial({ callerId: from });
+        const dial = twiml.dial({ callerId });
         dial.client(to);
       }
     } else {
@@ -85,6 +134,55 @@ router.post('/voice', express.urlencoded({ extended: false }), (req: Request, re
     const twiml = new twilio.twiml.VoiceResponse();
     twiml.say('An application error occurred.');
     res.type('text/xml').status(500).send(twiml.toString());
+  }
+});
+
+// ── POST /api/twilio/call ──────────────────────────────────────────
+// REST API outbound call — uses Twilio REST API with explicit callerId
+// instead of relying on device.connect() + TwiML which ignores From param.
+router.post('/call', requireAuth, async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) throw new ApiError(401, 'Unauthorized', 'auth_required');
+
+    const { to } = req.body;
+    if (!to || typeof to !== 'string') {
+      throw new ApiError(400, 'Missing destination phone number (to)', 'invalid_param');
+    }
+
+    // Fetch Twilio credentials AND caller number from user_settings
+    const { data: settings, error } = await req.db!.database
+      .from('user_settings')
+      .select(
+        'twilio_account_sid, twilio_auth_token, twilio_api_key, twilio_api_secret, twilio_twiml_app_sid, twilio_caller_number'
+      )
+      .eq('user_id', userId)
+      .single();
+
+    if (error || !settings?.twilio_account_sid) {
+      throw new ApiError(400, 'Twilio Account SID not configured. Go to Connectors page.', 'config_missing');
+    }
+    if (!settings?.twilio_auth_token) {
+      throw new ApiError(400, 'Twilio Auth Token not configured. Go to Connectors page.', 'config_missing');
+    }
+    if (!settings?.twilio_caller_number) {
+      throw new ApiError(400, 'Twilio Caller Number not configured. Go to Connectors page.', 'config_missing');
+    }
+
+    console.log(`[twilio/call] Initiating REST call: to=${to}, from=${settings.twilio_caller_number}`);
+
+    const client = getTwilioClient(settings.twilio_account_sid, settings.twilio_auth_token);
+
+    const call = await client.calls.create({
+      to,
+      from: settings.twilio_caller_number,
+      applicationSid: settings.twilio_twiml_app_sid,
+    });
+
+    console.log(`[twilio/call] REST call created: callSid=${call.sid}, status=${call.status}`);
+    res.json({ data: { callSid: call.sid, status: call.status } });
+  } catch (err) {
+    next(err);
   }
 });
 
