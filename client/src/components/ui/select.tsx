@@ -50,7 +50,6 @@ const Select = ({ data, defaultValue, onChange, disabled, title = "Select Option
         type: "spring",
         stiffness: 300,
         damping: 25,
-        ease: "0.65, 0, 0.35, 1",
       }}
     >
       <div className={`relative ${disabled ? 'opacity-60 cursor-not-allowed pointer-events-none' : ''}`}>
@@ -140,7 +139,7 @@ type SelectItemProps = {
   prefix?: string
 }
 
-const animation = {
+const animation: any = {
   hidden: {
     opacity: 0,
     y: 10,
