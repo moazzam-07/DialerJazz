@@ -47,7 +47,7 @@ router.post('/token', requireAuth, async (req: AuthenticatedRequest, res, next) 
     token.addGrant(grant);
 
     console.log('[twilio/token] Token generated successfully');
-    res.json({ token: token.toJwt() });
+    res.json({ data: { token: token.toJwt() } });
   } catch (err) {
     next(err);
   }
