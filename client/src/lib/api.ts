@@ -313,6 +313,18 @@ export const settingsApi = {
       method: 'POST',
       body: JSON.stringify({ accountSid, authToken }),
     }),
+
+  getTelnyxNumbers: () =>
+    apiFetch<{ phone_number: string; friendly_name: string; status: string }[]>('/settings/telnyx/phone-numbers'),
+
+  getTelnyxBalance: () =>
+    apiFetch<{ balance: string; currency: string; available_credit: string }>('/settings/telnyx/balance'),
+
+  getTwilioNumbers: () =>
+    apiFetch<{ phone_number: string; friendly_name: string; status: string }[]>('/settings/twilio/phone-numbers'),
+
+  getTwilioBalance: () =>
+    apiFetch<{ balance: string; currency: string }>('/settings/twilio/balance'),
 };
 
 // ============ Telnyx API ============

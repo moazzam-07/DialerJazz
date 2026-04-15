@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { Plug, CheckCircle2, XCircle, ArrowRight } from 'lucide-react';
 import { settingsApi } from '@/lib/api';
 import type { UserSettings } from '@/lib/api';
+import Select from '@/components/ui/select';
 
 export default function ConnectorsPage() {
   const [settings, setSettings] = useState<UserSettings | null>(null);
@@ -28,6 +29,15 @@ export default function ConnectorsPage() {
   const [isVerifyingTwilio, setIsVerifyingTwilio] = useState(false);
   const [isSavingTwilio, setIsSavingTwilio] = useState(false);
 
+  // Phone Numbers & Balances State
+  const [telnyxBalance, setTelnyxBalance] = useState<{ balance: string; currency: string } | null>(null);
+  const [telnyxNumbers, setTelnyxNumbers] = useState<{ phone_number: string; friendly_name: string }[]>([]);
+  const [isLoadingTelnyxData, setIsLoadingTelnyxData] = useState(false);
+
+  const [twilioBalance, setTwilioBalance] = useState<{ balance: string; currency: string } | null>(null);
+  const [twilioNumbers, setTwilioNumbers] = useState<{ phone_number: string; friendly_name: string }[]>([]);
+  const [isLoadingTwilioData, setIsLoadingTwilioData] = useState(false);
+
   useEffect(() => {
     fetchSettings();
   }, []);
@@ -46,6 +56,29 @@ export default function ConnectorsPage() {
       if (data?.twilio_api_secret) setTwilioApiSecret(data.twilio_api_secret);
       if (data?.twilio_twiml_app_sid) setTwilioTwimlAppSid(data.twilio_twiml_app_sid);
       if (data?.twilio_caller_number) setTwilioCallerNumber(data.twilio_caller_number);
+
+      // Fetch Provider Data in parallel
+      if (data?.telnyx_api_key) {
+        setIsLoadingTelnyxData(true);
+        Promise.all([settingsApi.getTelnyxBalance(), settingsApi.getTelnyxNumbers()])
+          .then(([balanceRes, numbersRes]) => {
+            if (balanceRes.data) setTelnyxBalance(balanceRes.data);
+            if (numbersRes.data) setTelnyxNumbers(numbersRes.data);
+          })
+          .catch(() => console.error('Failed to fetch Telnyx data'))
+          .finally(() => setIsLoadingTelnyxData(false));
+      }
+
+      if (data?.twilio_account_sid && data?.twilio_auth_token) {
+        setIsLoadingTwilioData(true);
+        Promise.all([settingsApi.getTwilioBalance(), settingsApi.getTwilioNumbers()])
+          .then(([balanceRes, numbersRes]) => {
+            if (balanceRes.data) setTwilioBalance(balanceRes.data);
+            if (numbersRes.data) setTwilioNumbers(numbersRes.data);
+          })
+          .catch(() => console.error('Failed to fetch Twilio data'))
+          .finally(() => setIsLoadingTwilioData(false));
+      }
     } catch (error: unknown) {
       toast.error('Failed to load settings');
     } finally {
@@ -189,6 +222,11 @@ export default function ConnectorsPage() {
                   SIP Ready
                 </span>
               )}
+              {telnyxBalance && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/10 px-3 py-1 text-xs font-semibold tracking-wider text-blue-600 border border-blue-500/20 mt-1">
+                  Balance: {telnyxBalance.currency} {telnyxBalance.balance}
+                </span>
+              )}
             </div>
           </div>
           
@@ -228,6 +266,11 @@ export default function ConnectorsPage() {
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground border border-border mt-1">
                   <CheckCircle2 className="h-3.5 w-3.5" />
                   WebRTC Ready
+                </span>
+              )}
+              {twilioBalance && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/10 px-3 py-1 text-xs font-semibold tracking-wider text-blue-600 border border-blue-500/20 mt-1">
+                  Balance: {twilioBalance.currency} {twilioBalance.balance}
                 </span>
               )}
             </div>
@@ -346,17 +389,32 @@ export default function ConnectorsPage() {
                     </div>
 
                     <div className="col-span-2">
-                      <label htmlFor="callerNumber" className="block text-sm font-medium text-foreground text-opacity-90 mb-1">
+                      <label className="block text-sm font-medium text-foreground text-opacity-90 mb-1">
                         Caller ID Number <span className="text-muted-foreground text-opacity-70 font-normal">(Optional)</span>
                       </label>
-                      <input
-                        type="text"
-                        id="callerNumber"
-                        placeholder="+1234567890"
-                        value={callerNumber}
-                        onChange={(e) => setCallerNumber(e.target.value)}
-                        className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground focus:border-foreground focus:outline-none focus:ring-1 focus:ring-foreground transition-all"
-                      />
+                      {isLoadingTelnyxData ? (
+                        <div className="h-12 w-full animate-pulse rounded-xl bg-muted" />
+                      ) : telnyxNumbers.length > 0 ? (
+                        <Select
+                          defaultValue={telnyxNumbers.find(n => n.phone_number === callerNumber)?.phone_number || telnyxNumbers[0].phone_number}
+                          onChange={(val) => setCallerNumber(val)}
+                          data={telnyxNumbers.map(n => ({
+                            id: n.phone_number,
+                            label: n.friendly_name,
+                            value: n.phone_number,
+                            description: n.phone_number
+                          }))}
+                        />
+                      ) : (
+                        <input
+                          type="text"
+                          id="callerNumber"
+                          placeholder="+1234567890 (No numbers found on account)"
+                          value={callerNumber}
+                          onChange={(e) => setCallerNumber(e.target.value)}
+                          className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground focus:border-foreground focus:outline-none focus:ring-1 focus:ring-foreground transition-all"
+                        />
+                      )}
                     </div>
                   </div>
 
@@ -498,17 +556,32 @@ export default function ConnectorsPage() {
                   </div>
 
                   <div>
-                    <label htmlFor="twilioCallerNum" className="block text-sm font-medium text-foreground mb-1">
+                    <label className="block text-sm font-medium text-foreground mb-1">
                       Caller ID Number <span className="text-muted-foreground font-normal">(Optional)</span>
                     </label>
+                    {isLoadingTwilioData ? (
+                        <div className="h-12 w-full animate-pulse rounded-xl bg-muted" />
+                      ) : twilioNumbers.length > 0 ? (
+                        <Select
+                          defaultValue={twilioNumbers.find(n => n.phone_number === twilioCallerNumber)?.phone_number || twilioNumbers[0].phone_number}
+                          onChange={(val) => setTwilioCallerNumber(val)}
+                          data={twilioNumbers.map(n => ({
+                            id: n.phone_number,
+                            label: n.friendly_name,
+                            value: n.phone_number,
+                            description: n.phone_number
+                          }))}
+                        />
+                      ) : (
                     <input
                       type="text"
                       id="twilioCallerNum"
-                      placeholder="+1234567890"
+                      placeholder="+1234567890 (No numbers found)"
                       value={twilioCallerNumber}
                       onChange={(e) => setTwilioCallerNumber(e.target.value)}
                       className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground focus:border-foreground focus:outline-none focus:ring-1 focus:ring-foreground transition-all"
                     />
+                    )}
                   </div>
 
                   <div className="flex gap-3 pt-2">
