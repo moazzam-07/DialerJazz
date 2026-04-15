@@ -2,16 +2,10 @@ import express, { Router, Request, Response } from 'express';
 import twilio from 'twilio';
 import { requireAuth, AuthenticatedRequest } from '../middleware/auth.js';
 import { ApiError } from '../middleware/errorHandler.js';
-import { getInsforgeClient } from '../lib/insforge.js';
 
 const router = Router();
 const { AccessToken } = twilio.jwt;
 const { VoiceGrant } = AccessToken;
-
-// Lazy-initialize Twilio REST client (requires account credentials)
-function getTwilioClient(accountSid: string, authToken: string) {
-  return twilio(accountSid, authToken);
-}
 
 // ── POST /api/twilio/token ─────────────────────────────────────────
 // Authenticated. Generates a short-lived Twilio Access Token with VoiceGrant.
@@ -63,52 +57,18 @@ router.post('/token', requireAuth, async (req: AuthenticatedRequest, res, next) 
 // Unauthenticated TwiML webhook. Twilio calls this when a browser
 // client initiates an outbound call via device.connect().
 // Returns TwiML XML instructing Twilio how to route the call.
-router.post('/voice', express.urlencoded({ extended: false }), async (req: Request, res: Response) => {
+router.post('/voice', express.urlencoded({ extended: false }), (req: Request, res: Response) => {
   try {
     const twiml = new twilio.twiml.VoiceResponse();
     const to = req.body.To;
     const from = req.body.From || req.body.Caller;
-    const callSid = req.body.CallSid;
 
-    console.log(`[Twilio Voice Webhook] To=${to}, From=${from}, CallSid=${callSid}`);
-    console.log(`[Twilio Voice Webhook] Raw body:`, JSON.stringify(req.body));
-
-    let verifiedCallerId: string | null = null;
-    let userId: string | null = null;
-
-    // Extract user identity from From field (Twilio Voice SDK sends "client:user_123")
-    const clientMatch = from?.match(/^client:(.+)$/);
-    if (clientMatch) {
-      const identity = clientMatch[1];
-      // Identity format is "user_<id>" from token generation
-      const userIdMatch = identity.match(/^user_(.+)$/);
-      if (userIdMatch) {
-        userId = userIdMatch[1];
-        console.log(`[Twilio Voice Webhook] Identified user: ${userId} from identity: ${identity}`);
-
-        // Use admin client to fetch user's verified Twilio caller number from settings
-        const adminDb = getInsforgeClient();
-        const { data: settings, error } = await adminDb.database
-          .from('user_settings')
-          .select('twilio_caller_number')
-          .eq('user_id', userId)
-          .single();
-
-        if (settings?.twilio_caller_number) {
-          verifiedCallerId = settings.twilio_caller_number;
-          console.log(`[Twilio Voice Webhook] Using verified caller ID from settings: ${verifiedCallerId}`);
-        } else {
-          console.error(`[Twilio Voice Webhook] No twilio_caller_number found for user ${userId}`);
-        }
-      }
-    }
-
-    // Use verified caller ID from settings, fallback to SDK's From if extraction failed
-    const callerId = verifiedCallerId || from;
+    console.log(`[Twilio Voice Webhook] To=${to}, From=${from}`);
 
     // Validate callerId - Twilio requires a verified phone number for outbound calls
-    if (!callerId || !/^\+?\d{10,15}$/.test(callerId.replace(/[\s\-()]/g, ''))) {
-      console.error('[Twilio Voice Webhook] Missing or invalid callerId:', callerId);
+    // The client already validates this before calling device.connect() (TwilioContext line 313)
+    if (!from || !/^\+?\d{10,15}$/.test(from.replace(/[\s\-()]/g, ''))) {
+      console.error('[Twilio Voice Webhook] Missing or invalid callerId (From):', from);
       twiml.say('Caller ID not configured. Please set a verified phone number in your connector settings.');
       res.type('text/xml').send(twiml.toString());
       return;
@@ -117,11 +77,11 @@ router.post('/voice', express.urlencoded({ extended: false }), async (req: Reque
     if (to) {
       // If "To" looks like a phone number, dial it
       if (/^[\d+\-() ]+$/.test(to)) {
-        const dial = twiml.dial({ callerId });
+        const dial = twiml.dial({ callerId: from });
         dial.number(to);
       } else {
         // Could be a client identity — dial as client
-        const dial = twiml.dial({ callerId });
+        const dial = twiml.dial({ callerId: from });
         dial.client(to);
       }
     } else {
