@@ -12,7 +12,14 @@ import {
   Mail,
   Zap,
   MousePointerClick,
-  Edit3
+  Edit3,
+  Link,
+  Globe,
+  Navigation,
+  ChevronDown,
+  Tag,
+  Copy,
+  Info
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { callsApi, leadsApi, campaignsApi } from '@/lib/api';
@@ -55,6 +62,7 @@ export default function CampaignDialerPage() {
   const [isDisposing, setIsDisposing] = useState(false);
   const [showDTMF, setShowDTMF] = useState(false);
   const [notes, setNotes] = useState('');
+  const [isDetailsExpanded, setIsDetailsExpanded] = useState(false);
   // Voice (from unified context — delegates to Telnyx or Twilio)
   const voice = useVoice();
   const prevCallState = useRef<CallState>('idle');
@@ -137,6 +145,7 @@ export default function CampaignDialerPage() {
   // Maintain context
   useEffect(() => {
     if (currentLead) setNotes(currentLead.notes || '');
+    setIsDetailsExpanded(false); // reset on next lead
   }, [currentLead]);
 
   const handleDial = () => {
@@ -345,14 +354,22 @@ export default function CampaignDialerPage() {
           {currentLead ? (
             <motion.div 
               key={currentLead.id}
-              drag={!isInCall && !showDisposition}
+              drag={!isInCall && !showDisposition && !isDetailsExpanded} // Disable swipe if details expanded
               dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
               onDragEnd={handleDragEnd}
               animate={controls}
-              className="absolute w-full h-full glass-solid rounded-[2rem] p-6 flex flex-col cursor-grab active:cursor-grabbing transform-gpu"
+              className="absolute w-full h-full glass-solid rounded-[2rem] p-6 flex flex-col cursor-grab active:cursor-grabbing transform-gpu overflow-hidden"
               style={{ paddingBottom: '90px' }} // Room for dial button mapping
             >
-                  <div className="flex flex-col items-center text-center mt-6 mb-8 relative">
+                  <button 
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setIsDetailsExpanded(!isDetailsExpanded); }}
+                    className="absolute top-6 right-6 z-30 h-10 w-10 bg-black/10 dark:bg-white/5 hover:bg-black/20 dark:hover:bg-white/10 rounded-full flex items-center justify-center transition-colors pointer-events-auto"
+                    title="Toggle Expand"
+                  >
+                    {isDetailsExpanded ? <ChevronDown className="h-5 w-5 text-foreground" /> : <Info className="h-5 w-5 text-foreground" />}
+                  </button>
+                  <div className="flex flex-col items-center text-center mt-6 mb-4 relative z-10 pointer-events-none">
                  {/* Dialed checkmark badge */}
                  {isLeadDialed(currentLead) && (
                    <div className="absolute -top-2 -right-2 h-7 w-7 rounded-full bg-foreground text-background flex items-center justify-center shadow-sm z-20">
@@ -366,37 +383,84 @@ export default function CampaignDialerPage() {
                  {currentLead.company && <h3 className="text-lg text-muted-foreground font-medium mt-1 tracking-body">{currentLead.company}</h3>}
               </div>
 
-              <div className="space-y-4 mb-6 relative z-10 bg-black/20 rounded-2xl p-4 border border-border">
-                 <div className="flex items-center gap-3">
-                    <Phone className="h-4 w-4 text-muted-foreground text-opacity-70 shrink-0" />
-                    <span className="text-lg font-mono font-semibold text-foreground">{currentLead.phone}</span>
-                 </div>
-                 {currentLead.email && (
-                 <div className="flex items-center gap-3">
-                    <Mail className="h-4 w-4 text-muted-foreground text-opacity-70 shrink-0" />
-                    <span className="text-sm font-medium text-foreground text-opacity-90 truncate">{currentLead.email}</span>
-                 </div>
-                 )}
-                 {(currentLead.city || currentLead.state) && (
-                 <div className="flex items-center gap-3">
-                    <MapPin className="h-4 w-4 text-muted-foreground text-opacity-70 shrink-0" />
-                    <span className="text-sm font-medium text-foreground text-opacity-90 truncate">{currentLead.city}, {currentLead.state}</span>
-                 </div>
-                 )}
-              </div>
+              <div 
+                className="flex-1 flex flex-col gap-2 relative z-10 overflow-y-auto no-scrollbar pointer-events-auto pb-4" 
+                onPointerDownCapture={(e) => {
+                  // If details are expanded, touching this area should not drag the card (already handled by drag={!isDetailsExpanded})
+                  if (isDetailsExpanded) e.stopPropagation();
+                }}
+              >
+                <div className="space-y-4 mb-2 relative z-10 bg-black/20 rounded-2xl p-4 border border-border shrink-0">
+                   <div className="flex items-center gap-3">
+                      <Phone className="h-4 w-4 text-muted-foreground text-opacity-70 shrink-0" />
+                      <span className="text-lg font-mono font-semibold text-foreground">{currentLead.phone}</span>
+                   </div>
+                   {currentLead.email && !isDetailsExpanded && (
+                   <div className="flex items-center gap-3">
+                      <Mail className="h-4 w-4 text-muted-foreground text-opacity-70 shrink-0" />
+                      <span className="text-sm font-medium text-foreground text-opacity-90 truncate">{currentLead.email}</span>
+                   </div>
+                   )}
+                   {(currentLead.city || currentLead.state) && (
+                   <div className="flex items-center gap-3">
+                      <MapPin className="h-4 w-4 text-muted-foreground text-opacity-70 shrink-0" />
+                      <span className="text-sm font-medium text-foreground text-opacity-90 truncate">{currentLead.city}, {currentLead.state}</span>
+                   </div>
+                   )}
+                </div>
 
-              {/* Editable Tags / Notes Layer (Always present, but easier to type when static) */}
-              <div className="flex-1 flex flex-col gap-2 relative z-10">
-                 <div className="flex items-center gap-2 mb-1 px-1">
-                    <Edit3 className="h-3 w-3 text-muted-foreground text-opacity-70" />
-                    <span className="text-xs uppercase font-bold text-muted-foreground text-opacity-70 tracking-widest">Scratchpad</span>
-                 </div>
-                 <textarea 
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Jot down notes before, during, or after the call..."
-                    className="w-full flex-1 bg-white/[0.02] border border-black/5 dark:border-white/5 rounded-xl resize-none p-3 text-sm text-foreground text-opacity-90 hover:bg-white/[0.04] focus:bg-white/[0.04] focus:ring-1 focus:ring-foreground/20 focus:border-foreground/30 focus:outline-none transition-colors"
-                 />
+                {isDetailsExpanded && (
+                   <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-4 mt-2 shrink-0">
+                      
+                      {/* Social/Link grid */}
+                      <div className="grid grid-cols-2 gap-2">
+                        {currentLead.website && (
+                            <a href={currentLead.website} target="_blank" rel="noreferrer" className="flex items-center gap-2 p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 text-xs font-medium text-foreground">
+                              <Globe className="h-4 w-4 shrink-0 text-blue-400" /> <span className="truncate">Website</span>
+                            </a>
+                        )}
+                        {currentLead.linkedin_url && (
+                            <a href={currentLead.linkedin_url} target="_blank" rel="noreferrer" className="flex items-center gap-2 p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 text-xs font-medium text-foreground">
+                              <Link className="h-4 w-4 shrink-0 text-blue-500" /> <span className="truncate">LinkedIn</span>
+                            </a>
+                        )}
+                        {currentLead.google_maps_url && (
+                            <a href={currentLead.google_maps_url} target="_blank" rel="noreferrer" className="flex items-center gap-2 p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 text-xs font-medium text-foreground">
+                              <Navigation className="h-4 w-4 shrink-0 text-green-400" /> <span className="truncate">Maps</span>
+                            </a>
+                        )}
+                        {currentLead.email && (
+                            <button onClick={() => { navigator.clipboard.writeText(currentLead.email!); toast.success('Copied email') }} className="flex items-center gap-2 p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 text-xs font-medium text-foreground text-left">
+                              <Copy className="h-4 w-4 shrink-0 text-muted-foreground" /> <span className="truncate">{currentLead.email}</span>
+                            </button>
+                        )}
+                      </div>
+
+                      {/* Tags */}
+                      {currentLead.tags && currentLead.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-2 px-1">
+                              {currentLead.tags.map((tag: string, i: number) => (
+                                  <span key={i} className="px-2.5 py-1 bg-black/30 dark:bg-black/40 border border-white/10 rounded-md text-xs font-mono text-white/90 flex items-center gap-1.5 backdrop-blur-sm"><Tag className="w-3 h-3 text-emerald-400" /> {tag}</span>
+                              ))}
+                          </div>
+                      )}
+                   </motion.div>
+                )}
+
+                {/* Editable Tags / Notes Layer */}
+                <div className="flex-1 flex flex-col gap-2 relative z-10 shrink-0 mt-2">
+                   <div className="flex items-center gap-2 mb-1 px-1">
+                      <Edit3 className="h-3 w-3 text-muted-foreground text-opacity-70" />
+                      <span className="text-xs uppercase font-bold text-muted-foreground text-opacity-70 tracking-widest">Scratchpad</span>
+                   </div>
+                   <textarea 
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      onPointerDownCapture={(e) => e.stopPropagation()} // Make sure we can select and scroll inside textarea
+                      placeholder="Jot down notes before, during, or after the call..."
+                      className="w-full min-h-[120px] flex-1 bg-white/[0.02] border border-black/5 dark:border-white/5 rounded-xl resize-none p-3 text-sm text-foreground text-opacity-90 hover:bg-white/[0.04] focus:bg-white/[0.04] focus:ring-1 focus:ring-foreground/20 focus:border-foreground/30 focus:outline-none transition-colors"
+                   />
+                </div>
               </div>
 
               {/* Call Controls (Dial / Hang Up / DTMF Toggle) */}

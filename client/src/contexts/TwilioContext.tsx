@@ -124,6 +124,8 @@ export function TwilioProvider({ children }: { children: ReactNode }) {
 
   // ── Helper to attach Call event listeners ──────────────────────────
   const attachCallListeners = useCallback((call: Call) => {
+    console.log('[TwilioContext] Attaching listeners to call:', call.parameters);
+
     call.on('accept', () => {
       console.log('[TwilioContext] Call accepted');
       primaryCallRef.current = call;
@@ -174,6 +176,11 @@ export function TwilioProvider({ children }: { children: ReactNode }) {
     call.on('ringing', () => {
       console.log('[TwilioContext] Call ringing');
       setPrimaryCallState('ringing');
+    });
+
+    // Track connection state changes for debugging
+    call.on('stateChanged', (state: string) => {
+      console.log('[TwilioContext] Call state changed to:', state);
     });
   }, [startPrimaryTimer, stopPrimaryTimer]);
 
@@ -302,6 +309,13 @@ export function TwilioProvider({ children }: { children: ReactNode }) {
 
       const resolvedCallerNumber = callerNumber || callerNumberRef.current || '';
 
+      // Validate caller number is present - Twilio requires a verified callerId for outbound calls
+      if (!resolvedCallerNumber || !/^\+?\d{10,15}$/.test(resolvedCallerNumber.replace(/[\s\-()]/g, ''))) {
+        console.error('[TwilioContext] Invalid or missing caller number:', resolvedCallerNumber);
+        setError('Caller ID not configured. Please set a verified phone number in Connectors > Twilio.');
+        return;
+      }
+
       console.log('[TwilioContext] dial():', { destinationNumber, resolvedCallerNumber });
 
       setError(null);
@@ -317,6 +331,7 @@ export function TwilioProvider({ children }: { children: ReactNode }) {
           From: resolvedCallerNumber,
         },
       }).then((call) => {
+        console.log('[TwilioContext] device.connect() succeeded, call parameters:', call.parameters);
         primaryCallRef.current = call;
         setPrimaryCall(call);
         attachCallListeners(call);

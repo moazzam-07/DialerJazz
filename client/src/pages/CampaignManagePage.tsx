@@ -19,13 +19,18 @@ export default function CampaignManagePage() {
   const [provider, setProvider] = useState<'telnyx' | 'twilio'>('telnyx');
   const [callerNumber, setCallerNumber] = useState<string>('');
 
+  const [telnyxNumbers, setTelnyxNumbers] = useState<{ phone_number: string; friendly_name: string }[]>([]);
+  const [twilioNumbers, setTwilioNumbers] = useState<{ phone_number: string; friendly_name: string }[]>([]);
+
   useEffect(() => {
     async function load() {
       if (!id) return;
       try {
-        const [campaignRes, settingsRes] = await Promise.all([
+        const [campaignRes, settingsRes, tnNumRes, twNumRes] = await Promise.all([
           campaignsApi.get(id),
-          settingsApi.get()
+          settingsApi.get(),
+          settingsApi.getTelnyxNumbers().catch(() => ({ data: [] })),
+          settingsApi.getTwilioNumbers().catch(() => ({ data: [] }))
         ]);
         const camp = campaignRes.data;
         setCampaign(camp);
@@ -34,6 +39,9 @@ export default function CampaignManagePage() {
         setDialerMode(camp.dialer_mode || 'click');
         setProvider(camp.provider || 'telnyx');
         setCallerNumber(camp.caller_number || '');
+
+        if (tnNumRes.data) setTelnyxNumbers(tnNumRes.data as any);
+        if (twNumRes.data) setTwilioNumbers(twNumRes.data as any);
         
       } catch (err: any) {
         toast.error(err.message || 'Failed to load campaign');
@@ -139,6 +147,8 @@ export default function CampaignManagePage() {
   const progressPercentage = campaign.total_leads > 0 
     ? Math.round((campaign.leads_called / campaign.total_leads) * 100) 
     : 0;
+
+  const activeNumbers = provider === 'telnyx' ? telnyxNumbers : twilioNumbers;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
@@ -307,18 +317,35 @@ export default function CampaignManagePage() {
           <div className="space-y-2 sm:col-span-2 mt-4">
             <label className="text-sm font-medium text-foreground">Outbound Caller ID (Optional)</label>
             <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder={
-                  provider === 'telnyx' 
-                    ? (settings?.telnyx_caller_number || '+1234567890')
-                    : (settings?.twilio_caller_number || '+1234567890')
-                }
-                value={callerNumber}
-                onChange={(e) => setCallerNumber(e.target.value)}
-                disabled={isLocked}
-                className="flex-1 h-12 bg-surface hover:bg-black-[0.02] dark:hover:bg-white/[0.02] border border-black/10 dark:border-white/10 rounded-[0.85rem] px-4 text-sm focus:outline-none focus:ring-1 focus:ring-foreground disabled:opacity-60 disabled:cursor-not-allowed placeholder:text-muted-foreground/60 transition-colors"
-              />
+              {activeNumbers.length > 0 ? (
+                <div className="flex-1">
+                  <Select 
+                    title="Outbound Caller ID"
+                    defaultValue={activeNumbers.find(n => n.phone_number === callerNumber)?.phone_number || activeNumbers[0].phone_number}
+                    onChange={(val) => setCallerNumber(val)}
+                    disabled={isLocked}
+                    data={activeNumbers.map(n => ({
+                      id: n.phone_number,
+                      label: n.friendly_name,
+                      value: n.phone_number,
+                      description: n.phone_number
+                    }))}
+                  />
+                </div>
+              ) : (
+                <input
+                  type="text"
+                  placeholder={
+                    provider === 'telnyx' 
+                      ? (settings?.telnyx_caller_number || '+1234567890 (No numbers found)')
+                      : (settings?.twilio_caller_number || '+1234567890 (No numbers found)')
+                  }
+                  value={callerNumber}
+                  onChange={(e) => setCallerNumber(e.target.value)}
+                  disabled={isLocked}
+                  className="flex-1 h-12 bg-surface hover:bg-black-[0.02] dark:hover:bg-white/[0.02] border border-black/10 dark:border-white/10 rounded-[0.85rem] px-4 text-sm focus:outline-none focus:ring-1 focus:ring-foreground disabled:opacity-60 disabled:cursor-not-allowed placeholder:text-muted-foreground/60 transition-colors"
+                />
+              )}
             </div>
             <p className="text-xs text-muted-foreground">
               If left blank, uses the default number configured in Connectors for the selected provider.

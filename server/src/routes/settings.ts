@@ -145,4 +145,130 @@ router.post('/verify-twilio', async (req: AuthenticatedRequest, res: Response, n
   }
 });
 
+// GET /settings/telnyx/balance
+router.get('/telnyx/balance', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const { data: settings } = await req.db!
+      .database.from('user_settings')
+      .select('telnyx_api_key')
+      .eq('user_id', req.user.id)
+      .maybeSingle();
+
+    if (!settings?.telnyx_api_key) {
+      return res.json({ data: null, error: 'not_configured' });
+    }
+
+    const response = await fetch('https://api.telnyx.com/v2/balance', {
+      headers: {
+        'Authorization': `Bearer ${settings.telnyx_api_key}`,
+        'Accept': 'application/json'
+      }
+    });
+
+    if (!response.ok) throw new Error('Failed to fetch Telnyx balance');
+    const data = await response.json();
+    res.json({ data: data.data });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /settings/telnyx/phone-numbers
+router.get('/telnyx/phone-numbers', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const { data: settings } = await req.db!
+      .database.from('user_settings')
+      .select('telnyx_api_key')
+      .eq('user_id', req.user.id)
+      .maybeSingle();
+
+    if (!settings?.telnyx_api_key) {
+      return res.json({ data: null, error: 'not_configured' });
+    }
+
+    const response = await fetch('https://api.telnyx.com/v2/phone_numbers', {
+      headers: {
+        'Authorization': `Bearer ${settings.telnyx_api_key}`,
+        'Accept': 'application/json'
+      }
+    });
+
+    if (!response.ok) throw new Error('Failed to fetch Telnyx phone numbers');
+    const telnyxData = await response.json();
+    
+    // Normalize response
+    const numbers = (telnyxData.data || []).map((num: any) => ({
+      phone_number: num.phone_number,
+      friendly_name: num.connection_name || num.phone_number,
+      status: num.status
+    }));
+
+    res.json({ data: numbers });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /settings/twilio/balance
+router.get('/twilio/balance', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const { data: settings } = await req.db!
+      .database.from('user_settings')
+      .select('twilio_account_sid, twilio_auth_token')
+      .eq('user_id', req.user.id)
+      .maybeSingle();
+
+    if (!settings?.twilio_account_sid || !settings?.twilio_auth_token) {
+      return res.json({ data: null, error: 'not_configured' });
+    }
+
+    const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${settings.twilio_account_sid}/Balance.json`, {
+      headers: {
+        'Authorization': 'Basic ' + Buffer.from(`${settings.twilio_account_sid}:${settings.twilio_auth_token}`).toString('base64'),
+      }
+    });
+
+    if (!response.ok) throw new Error('Failed to fetch Twilio balance');
+    const data = await response.json();
+    res.json({ data });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /settings/twilio/phone-numbers
+router.get('/twilio/phone-numbers', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const { data: settings } = await req.db!
+      .database.from('user_settings')
+      .select('twilio_account_sid, twilio_auth_token')
+      .eq('user_id', req.user.id)
+      .maybeSingle();
+
+    if (!settings?.twilio_account_sid || !settings?.twilio_auth_token) {
+      return res.json({ data: null, error: 'not_configured' });
+    }
+
+    const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${settings.twilio_account_sid}/IncomingPhoneNumbers.json`, {
+      headers: {
+        'Authorization': 'Basic ' + Buffer.from(`${settings.twilio_account_sid}:${settings.twilio_auth_token}`).toString('base64'),
+      }
+    });
+
+    if (!response.ok) throw new Error('Failed to fetch Twilio phone numbers');
+    const twilioData = await response.json();
+    
+    // Normalize response
+    const numbers = (twilioData.incoming_phone_numbers || []).map((num: any) => ({
+      phone_number: num.phone_number,
+      friendly_name: num.friendly_name,
+      status: 'active'
+    }));
+
+    res.json({ data: numbers });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;

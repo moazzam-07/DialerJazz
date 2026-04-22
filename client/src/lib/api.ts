@@ -172,25 +172,37 @@ export interface Lead {
   phone: string;
   email?: string;
   website?: string;
+  linkedin_url?: string;
+  google_maps_url?: string;
+  address?: string;
   city?: string;
   state?: string;
   zip?: string;
   google_rating?: number;
   review_count?: number;
   business_category?: string;
+  notes?: string;
+  tags?: string[];
   status: string;
   priority: number;
-  tags?: string[];
-  notes?: string;
   custom_fields?: Record<string, unknown>;
   created_at: string;
 }
 
+export interface LeadsFilterParams extends PaginationParams {
+  search?: string;
+  status?: string;
+  tags?: string;
+}
+
 export const leadsApi = {
-  listAll: (params?: PaginationParams) => {
+  listAll: (params?: LeadsFilterParams) => {
     const query = new URLSearchParams();
     if (params?.page) query.set('page', String(params.page));
     if (params?.per_page) query.set('per_page', String(params.per_page));
+    if (params?.search) query.set('search', params.search);
+    if (params?.status) query.set('status', params.status);
+    if (params?.tags) query.set('tags', params.tags);
     const qs = query.toString();
     return apiFetch<Lead[]>(qs ? `/leads?${qs}` : '/leads') as Promise<PaginatedResponse<Lead>>;
   },

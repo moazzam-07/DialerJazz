@@ -13,6 +13,8 @@ const leadSchema = z.object({
   phone: z.string().min(1, 'Phone is required'),
   email: z.string().optional().or(z.literal('')),
   website: z.string().optional().or(z.literal('')),
+  linkedin_url: z.string().optional().or(z.literal('')),
+  google_maps_url: z.string().optional().or(z.literal('')),
   address: z.string().optional(),
   city: z.string().optional(),
   state: z.string().optional(),
@@ -32,17 +34,42 @@ const bulkLeadsSchema = z.object({
   leads: z.array(leadSchema).min(1).max(2000)
 });
 
-// Mini-CRM: Fetch all leads globally for this user
+// Mini-CRM: Fetch all leads globally for this user with server-side search/filter
 router.get('/', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const page = Math.max(1, Number(req.query.page) || 1);
     const perPage = Math.min(100, Math.max(1, Number(req.query.per_page) || 25));
     const offset = (page - 1) * perPage;
 
-    const { data, count, error } = await req.db!
-      .database.from('leads')
+    const search = req.query.search as string | undefined;
+    const status = req.query.status as string | undefined;
+    const tags = req.query.tags as string | undefined;
+
+    let query = req.db!.database
+      .from('leads')
       .select('*', { count: 'exact' })
-      .eq('user_id', req.user.id)
+      .eq('user_id', req.user.id);
+
+    // Server-side search across name, company, email, and phone
+    if (search && search.trim()) {
+      const searchTerm = `%${search.trim()}%`;
+      query = query.or(`first_name.ilike.*${searchTerm}*,last_name.ilike.*${searchTerm}*,company.ilike.*${searchTerm}*,email.ilike.*${searchTerm}*,phone.ilike.*${searchTerm}*`);
+    }
+
+    // Filter by status
+    if (status && status.trim()) {
+      query = query.eq('status', status);
+    }
+
+    // Filter by tags (contains any of the specified tags)
+    if (tags && tags.trim()) {
+      const tagArray = tags.split(',').map(t => t.trim()).filter(Boolean);
+      if (tagArray.length > 0) {
+        query = query.overlaps('tags', tagArray);
+      }
+    }
+
+    const { data, count, error } = await query
       .order('created_at', { ascending: false })
       .range(offset, offset + perPage - 1);
 
