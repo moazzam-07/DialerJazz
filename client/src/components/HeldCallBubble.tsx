@@ -5,7 +5,7 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { Pause, PhoneForwarded } from 'lucide-react';
-import { useVoice } from '@/contexts/VoiceContext';
+import { useTelnyxContext } from '@/contexts/TelnyxContext';
 
 export default function HeldCallBubble() {
   const {
@@ -13,7 +13,7 @@ export default function HeldCallBubble() {
     heldCallDuration,
     heldCallerNumber,
     hangupAndResume,
-  } = useVoice();
+  } = useTelnyxContext();
 
   const visible = !!heldCall;
 
@@ -45,7 +45,7 @@ export default function HeldCallBubble() {
               <p className="text-xs font-bold uppercase tracking-widest text-amber-400">
                 On Hold
               </p>
-              <p className="text-sm font-mono font-semibold text-foreground">
+              <p className="text-sm font-mono font-semibold text-white">
                 {heldCallerNumber}
               </p>
             </div>
@@ -54,8 +54,8 @@ export default function HeldCallBubble() {
               {minutes}:{seconds}
             </span>
 
-            <div className="h-7 w-7 rounded-full bg-foreground/20 border border-foreground/30 flex items-center justify-center ml-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              <PhoneForwarded className="h-3.5 w-3.5 text-muted-foreground" />
+            <div className="h-7 w-7 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center ml-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <PhoneForwarded className="h-3.5 w-3.5 text-emerald-400" />
             </div>
           </button>
         </motion.div>

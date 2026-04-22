@@ -50,8 +50,8 @@ export function DialerModeSelect({ value, onChange }: DialerModeSelectProps) {
       ref={containerRef}
       className={cn(
         "w-full rounded-2xl shadow-2xl overflow-hidden cursor-pointer select-none border transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]",
-        "bg-surface",
-        isOpen ? "border-foreground/50 shadow-foreground/10" : "border-border hover:border-white/20",
+        "bg-[#1A1A1E]",
+        isOpen ? "border-emerald-500/50 shadow-emerald-500/10" : "border-white/10 hover:border-white/20",
         isOpen ? "rounded-3xl" : "rounded-2xl"
       )}
     >
@@ -62,15 +62,15 @@ export function DialerModeSelect({ value, onChange }: DialerModeSelectProps) {
       >
         <div className={cn(
           "flex h-12 w-12 items-center justify-center rounded-xl transition-colors duration-300",
-          isOpen ? "bg-foreground/20 text-muted-foreground" : "bg-muted text-muted-foreground"
+          isOpen ? "bg-emerald-500/20 text-emerald-400" : "bg-white/5 text-zinc-400"
         )}>
           {selectedMode.icon}
         </div>
         <div className="flex-1 overflow-hidden">
-          <h3 className="text-base font-semibold text-foreground">{selectedMode.title}</h3>
+          <h3 className="text-base font-semibold text-white">{selectedMode.title}</h3>
           <p
             className={cn(
-              "text-sm text-muted-foreground",
+              "text-sm text-zinc-400",
               "transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]",
               isOpen ? "opacity-0 max-h-0 mt-0" : "opacity-100 max-h-6 mt-0.5"
             )}
@@ -81,8 +81,8 @@ export function DialerModeSelect({ value, onChange }: DialerModeSelectProps) {
         <div className="flex h-8 w-8 items-center justify-center mr-2">
           <ChevronUp
             className={cn(
-              "h-5 w-5 text-muted-foreground text-opacity-70 transition-transform duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]",
-              isOpen ? "rotate-0 text-foreground" : "rotate-180"
+              "h-5 w-5 text-zinc-500 transition-transform duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]",
+              isOpen ? "rotate-0 text-emerald-500" : "rotate-180"
             )}
           />
         </div>
@@ -91,13 +91,13 @@ export function DialerModeSelect({ value, onChange }: DialerModeSelectProps) {
       {/* Options List */}
       <div
         className={cn(
-          "grid bg-surface",
+          "grid bg-[#1A1A1E]",
           "transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]",
           isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
         )}
       >
         <div className="overflow-hidden">
-          <div className="px-2 pb-2 pt-1 border-t border-border">
+          <div className="px-2 pb-2 pt-1 border-t border-white/5">
             <div className="space-y-1">
               {MODES.map((mode, index) => {
                 const isSelected = mode.id === value;
@@ -111,7 +111,7 @@ export function DialerModeSelect({ value, onChange }: DialerModeSelectProps) {
                     className={cn(
                       "flex items-start gap-3 rounded-xl p-3",
                       "transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]",
-                      isSelected ? "bg-foreground/10" : "hover:bg-muted",
+                      isSelected ? "bg-emerald-500/10" : "hover:bg-white/5",
                       isOpen ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
                     )}
                     style={{
@@ -120,18 +120,18 @@ export function DialerModeSelect({ value, onChange }: DialerModeSelectProps) {
                   >
                     <div className={cn(
                       "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors duration-300",
-                      isSelected ? "bg-foreground/20 text-muted-foreground" : "bg-muted text-muted-foreground"
+                      isSelected ? "bg-emerald-500/20 text-emerald-400" : "bg-white/5 text-zinc-400"
                     )}>
                       {mode.icon}
                     </div>
                     <div className="flex-1 min-w-0">
                       <h4 className={cn(
                         "text-sm font-semibold",
-                        isSelected ? "text-muted-foreground" : "text-foreground"
+                        isSelected ? "text-emerald-400" : "text-zinc-200"
                       )}>
                         {mode.title}
                       </h4>
-                      <p className="text-sm text-muted-foreground text-opacity-70 truncate">{mode.description}</p>
+                      <p className="text-sm text-zinc-500 truncate">{mode.description}</p>
                     </div>
                   </div>
                 )

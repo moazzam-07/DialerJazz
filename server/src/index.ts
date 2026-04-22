@@ -15,7 +15,6 @@ import leadsRouter from './routes/leads.js';
 import statsRouter from './routes/stats.js';
 import callsRouter from './routes/calls.js';
 import telnyxRouter from './routes/telnyx.js';
-import twilioRouter from './routes/twilio.js';
 
 // In dev, load .env from parent dir. In production (Docker), env vars are injected.
 if (process.env.NODE_ENV !== 'production') {
@@ -95,8 +94,6 @@ app.use('/api/stats', statsRouter);
 app.use('/api/calls', callsRouter);
 app.use('/api/telnyx/token', strictLimiter);  // Extra protection on token generation
 app.use('/api/telnyx', telnyxRouter);
-app.use('/api/twilio/token', strictLimiter);  // Extra protection on token generation
-app.use('/api/twilio', twilioRouter);
 
 // ─── Production: Serve Vite client as static files ─────────
 if (process.env.NODE_ENV === 'production') {

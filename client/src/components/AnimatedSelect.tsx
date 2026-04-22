@@ -65,24 +65,24 @@ export const AnimatedSelect: React.FC<AnimatedSelectProps> = ({
         disabled={disabled}
         className={`
           w-full px-4 py-3 rounded-lg
-          bg-muted border border-zinc-700
+          bg-zinc-900 border border-zinc-700
           text-zinc-100 text-left
           flex items-center justify-between
           transition-all duration-200
-          ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-foreground/50 cursor-pointer'}
-          ${isOpen ? 'border-foreground ring-2 ring-foreground/20' : ''}
+          ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-emerald-500/50 cursor-pointer'}
+          ${isOpen ? 'border-emerald-500 ring-2 ring-emerald-500/20' : ''}
         `}
         whileHover={!disabled ? { scale: 1.01 } : {}}
         whileTap={!disabled ? { scale: 0.99 } : {}}
       >
-        <span className={selectedOption ? 'text-zinc-100' : 'text-muted-foreground'}>
+        <span className={selectedOption ? 'text-zinc-100' : 'text-zinc-400'}>
           {selectedOption ? selectedOption.label : placeholder}
         </span>
         <motion.div
           animate={{ rotate: isOpen ? 180 : 0 }}
           transition={{ duration: 0.2 }}
         >
-          <ChevronDown className="w-4 h-4 text-muted-foreground" />
+          <ChevronDown className="w-4 h-4 text-zinc-400" />
         </motion.div>
       </motion.button>
 
@@ -93,7 +93,7 @@ export const AnimatedSelect: React.FC<AnimatedSelectProps> = ({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.95 }}
             transition={{ duration: 0.15, ease: 'easeOut' }}
-            className="absolute z-50 w-full mt-2 rounded-lg bg-muted border border-zinc-700 shadow-2xl overflow-hidden"
+            className="absolute z-50 w-full mt-2 rounded-lg bg-zinc-900 border border-zinc-700 shadow-2xl overflow-hidden"
           >
             <div className="py-1 max-h-64 overflow-y-auto custom-scrollbar">
               {options.map((option, index) => (
@@ -111,9 +111,9 @@ export const AnimatedSelect: React.FC<AnimatedSelectProps> = ({
                     transition-colors duration-150
                     ${option.disabled
                       ? 'opacity-50 cursor-not-allowed'
-                      : 'hover:bg-muted cursor-pointer'
+                      : 'hover:bg-zinc-800 cursor-pointer'
                     }
-                    ${selectedValue === option.value ? 'bg-foreground/20 text-muted-foreground' : 'text-zinc-100'}
+                    ${selectedValue === option.value ? 'bg-emerald-500/20 text-emerald-400' : 'text-zinc-100'}
                   `}
                   whileHover={!option.disabled ? { x: 4 } : {}}
                 >
@@ -124,13 +124,13 @@ export const AnimatedSelect: React.FC<AnimatedSelectProps> = ({
                       animate={{ scale: 1, rotate: 0 }}
                       transition={{ type: 'spring', stiffness: 300, damping: 20 }}
                     >
-                      <Check className="w-4 h-4 text-foreground flex-shrink-0" />
+                      <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
                     </motion.div>
                   )}
                 </motion.button>
               ))}
               {options.length === 0 && (
-                <div className="px-4 py-3 text-sm text-muted-foreground text-opacity-70 text-center">
+                <div className="px-4 py-3 text-sm text-zinc-500 text-center">
                   No options available
                 </div>
               )}

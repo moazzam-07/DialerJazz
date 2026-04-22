@@ -6,7 +6,7 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { Phone, PhoneOff, User } from 'lucide-react';
-import { useVoice } from '@/contexts/VoiceContext';
+import { useTelnyxContext } from '@/contexts/TelnyxContext';
 
 export default function IncomingCallOverlay() {
   const {
@@ -16,7 +16,7 @@ export default function IncomingCallOverlay() {
     primaryCall,
     answerIncoming,
     rejectIncoming,
-  } = useVoice();
+  } = useTelnyxContext();
 
   // Only show full-screen when incoming + NO active call
   const visible = !!incomingCall && !primaryCall;
@@ -35,17 +35,17 @@ export default function IncomingCallOverlay() {
             <motion.div
               animate={{ scale: [1, 1.8], opacity: [0.3, 0] }}
               transition={{ duration: 2, repeat: Infinity, ease: 'easeOut' }}
-              className="absolute inset-0 rounded-full border-2 border-foreground/40"
+              className="absolute inset-0 rounded-full border-2 border-emerald-500/40"
               style={{ width: 160, height: 160, top: -40, left: -40 }}
             />
             <motion.div
               animate={{ scale: [1, 1.5], opacity: [0.2, 0] }}
               transition={{ duration: 2, repeat: Infinity, ease: 'easeOut', delay: 0.5 }}
-              className="absolute inset-0 rounded-full border-2 border-foreground/30"
+              className="absolute inset-0 rounded-full border-2 border-emerald-500/30"
               style={{ width: 160, height: 160, top: -40, left: -40 }}
             />
-            <div className="relative h-20 w-20 rounded-full bg-muted border-2 border-black/10 dark:border-white/10 flex items-center justify-center">
-              <User className="h-10 w-10 text-foreground" />
+            <div className="relative h-20 w-20 rounded-full bg-gradient-to-br from-emerald-500/30 to-emerald-700/20 border-2 border-emerald-500/40 flex items-center justify-center">
+              <User className="h-10 w-10 text-emerald-400" />
             </div>
           </div>
 
@@ -56,13 +56,13 @@ export default function IncomingCallOverlay() {
             transition={{ delay: 0.2 }}
             className="text-center mb-16"
           >
-            <p className="text-sm font-bold tracking-widest uppercase text-muted-foreground mb-3">
+            <p className="text-sm font-bold tracking-widest uppercase text-emerald-400 mb-3">
               Incoming Call
             </p>
-            <h1 className="text-4xl font-extrabold text-foreground tracking-tight mb-2">
+            <h1 className="text-4xl font-extrabold text-white tracking-tight mb-2">
               {incomingCallerName || 'Unknown Caller'}
             </h1>
-            <p className="text-xl font-mono text-muted-foreground">
+            <p className="text-xl font-mono text-zinc-400">
               {incomingCallerNumber}
             </p>
           </motion.div>
@@ -95,11 +95,11 @@ export default function IncomingCallOverlay() {
               <motion.div
                 animate={{ scale: [1, 1.05, 1] }}
                 transition={{ duration: 1.5, repeat: Infinity }}
-                className="h-20 w-20 rounded-full bg-foreground flex items-center justify-center shadow-lg transition-all group-hover:bg-foreground/90 group-hover:scale-110 group-active:scale-95"
+                className="h-20 w-20 rounded-full bg-emerald-500 flex items-center justify-center shadow-[0_0_40px_rgba(16,185,129,0.4)] transition-all group-hover:bg-emerald-400 group-hover:scale-110 group-active:scale-95"
               >
-                <Phone className="h-9 w-9 text-background" />
+                <Phone className="h-9 w-9 text-white" />
               </motion.div>
-              <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+              <span className="text-xs font-bold uppercase tracking-widest text-emerald-400">
                 Accept
               </span>
             </button>

@@ -23,16 +23,6 @@ import { TelnyxRTC, Call, SwEvent } from '@telnyx/webrtc';
 import type { INotification } from '@telnyx/webrtc';
 import { settingsApi, telnyxApi } from '@/lib/api';
 
-// ── Utilities ────────────────────────────────────────────────────────
-function toE164(number: string): string {
-  const digits = number.replace(/\D/g, '');
-  if (!digits) return '';
-  if (digits.startsWith('+')) return digits;
-  if (digits.length === 10) return `+1${digits}`; // US number
-  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`;
-  return `+${digits}`;
-}
-
 // ── Types ────────────────────────────────────────────────────────────
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'registered';
 export type CallState = 'idle' | 'trying' | 'ringing' | 'active' | 'held' | 'done' | 'hangup';
@@ -176,12 +166,6 @@ export function TelnyxProvider({ children }: { children: ReactNode }) {
       const callId = call.id;
 
       console.log(`[TelnyxContext] Notification: id=${callId}, direction=${direction}, state=${state}`);
-      console.log('[TelnyxContext] Call options payload:', {
-        callerNumber: call.options?.callerNumber,
-        callerName: call.options?.callerName,
-        destinationNumber: call.options?.destinationNumber,
-        remoteCallerNumber: call.options?.remoteCallerNumber,
-      });
 
       // ── Ignore zombie notifications from calls we already hung up ──
       if (hungUpCallIdsRef.current.has(callId)) {
@@ -360,12 +344,6 @@ export function TelnyxProvider({ children }: { children: ReactNode }) {
       const settingsRes = await settingsApi.get();
       const settings = settingsRes.data;
 
-      console.log('[TelnyxContext] initConnection() fetched settings:', {
-        telnyx_sip_login: !!settings?.telnyx_sip_login,
-        telnyx_api_key: !!settings?.telnyx_api_key,
-        telnyx_caller_number: settings?.telnyx_caller_number,
-      });
-
       if (!settings?.telnyx_sip_login && !settings?.telnyx_api_key) {
         setSipConfigured(false);
         setConnectionStatus('disconnected');
@@ -447,20 +425,6 @@ export function TelnyxProvider({ children }: { children: ReactNode }) {
       if (connectionStatus !== 'registered') { setError('Telnyx not registered yet.'); return; }
       if (primaryCallRef.current) { setError('A call is already in progress.'); return; }
 
-      const resolvedCallerNumber = callerNumber || callerNumberRef.current || '';
-      
-      if (!resolvedCallerNumber) {
-        console.warn('[TelnyxContext] ⚠️ No callerNumber configured! Telnyx may route using default behaviors.', { callerNumber, callerNumberRef: callerNumberRef.current });
-      }
-
-      const formattedCallerNumber = toE164(resolvedCallerNumber);
-
-      console.log('[TelnyxContext] dial():', { 
-        destinationNumber, 
-        rawCallerNumber: resolvedCallerNumber,
-        formattedCallerNumber 
-      });
-
       setError(null);
       setSipError(null);
       setPrimaryCallState('trying');
@@ -470,7 +434,7 @@ export function TelnyxProvider({ children }: { children: ReactNode }) {
 
       client.newCall({
         destinationNumber,
-        callerNumber: formattedCallerNumber,
+        callerNumber: callerNumber || callerNumberRef.current || '',
         callerName: 'Jazz Caller',
       });
     },

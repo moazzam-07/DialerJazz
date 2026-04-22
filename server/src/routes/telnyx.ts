@@ -88,7 +88,7 @@ router.post('/token', requireAuth, async (req: AuthenticatedRequest, res, next) 
     const tokenData = await tokenRes.json();
     const jwt = typeof tokenData === 'string' ? tokenData : (tokenData.data || tokenData);
 
-    res.json({ data: { token: jwt } });
+    res.json({ token: jwt });
   } catch (err) {
     next(err);
   }

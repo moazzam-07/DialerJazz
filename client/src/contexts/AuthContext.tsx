@@ -12,9 +12,7 @@ interface AuthContextType {
   accessToken: string | null;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<{ requireEmailVerification: boolean }>;
-  verifyEmail: (email: string, otp: string) => Promise<void>;
-  resendVerificationEmail: (email: string) => Promise<void>;
+  signUp: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   exchangeResetPasswordToken: (email: string, code: string) => Promise<string>;
@@ -27,9 +25,7 @@ const AuthContext = createContext<AuthContextType>({
   accessToken: null,
   isLoading: true,
   signIn: async () => {},
-  signUp: async () => ({ requireEmailVerification: false }),
-  verifyEmail: async () => {},
-  resendVerificationEmail: async () => {},
+  signUp: async () => {},
   signInWithGoogle: async () => {},
   resetPassword: async () => {},
   exchangeResetPasswordToken: async () => "",
@@ -110,34 +106,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) {
       throw error;
     }
-    // If email verification is required, do NOT auto-login
-    if (data?.requireEmailVerification) {
-      return { requireEmailVerification: true };
-    }
-    // No verification required — log in immediately
-    if (data?.user && data?.accessToken) {
+    if (data?.user) {
       setUser(data.user);
-      setAccessToken(data.accessToken);
-      setApiToken(data.accessToken);
-      localStorage.setItem('jazz_access_token', data.accessToken);
+      const token = data.accessToken || null;
+      setAccessToken(token);
+      setApiToken(token);
+      if (token) {
+        localStorage.setItem('jazz_access_token', token);
+      } else {
+        localStorage.removeItem('jazz_access_token');
+      }
     }
-    return { requireEmailVerification: false };
-  };
-
-  const verifyEmail = async (email: string, otp: string) => {
-    const { data, error } = await insforge.auth.verifyEmail({ email, otp });
-    if (error) throw error;
-    if (data?.user && data?.accessToken) {
-      setUser(data.user);
-      setAccessToken(data.accessToken);
-      setApiToken(data.accessToken);
-      localStorage.setItem('jazz_access_token', data.accessToken);
-    }
-  };
-
-  const resendVerificationEmail = async (email: string) => {
-    const { error } = await insforge.auth.resendVerificationEmail({ email });
-    if (error) throw error;
   };
 
   const signInWithGoogle = async () => {
@@ -178,8 +157,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider value={{ 
-      user, accessToken, isLoading, signIn, signUp, verifyEmail, resendVerificationEmail,
-      signInWithGoogle, resetPassword, exchangeResetPasswordToken, confirmPasswordReset, signOut 
+      user, accessToken, isLoading, signIn, signUp, signInWithGoogle, 
+      resetPassword, exchangeResetPasswordToken, confirmPasswordReset, signOut 
     }}>
       {children}
     </AuthContext.Provider>

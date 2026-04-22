@@ -18,7 +18,7 @@ export default function DTMFKeypad({ visible, onPress }: DTMFKeypadProps) {
         <button
           key={k}
           onClick={() => onPress(k)}
-          className="bg-muted hover:bg-muted/80 py-3 rounded-lg font-bold hover:bg-white/20 active:scale-95 text-xl text-foreground transition-all"
+          className="bg-white/10 py-3 rounded-lg font-bold hover:bg-white/20 active:scale-95 text-xl text-white transition-all"
         >
           {k}
         </button>
