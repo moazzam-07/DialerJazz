@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Loader2, Play, Pause, CheckCircle2, Save, RefreshCw, MousePointerClick, Zap, Phone, Server } from 'lucide-react';
+import { ArrowLeft, Loader2, Play, Pause, CheckCircle2, Save, RefreshCw, MousePointerClick, Zap, Phone, Server, Smartphone } from 'lucide-react';
 import { toast } from 'sonner';
 import Select from '@/components/ui/select';
 import { campaignsApi, settingsApi, type Campaign, type UserSettings } from '@/lib/api';
@@ -16,7 +16,7 @@ export default function CampaignManagePage() {
 
   // Editable config state
   const [dialerMode, setDialerMode] = useState<string>('click');
-  const [provider, setProvider] = useState<'telnyx' | 'twilio'>('telnyx');
+  const [provider, setProvider] = useState<'telnyx' | 'twilio' | 'local'>('telnyx');
   const [callerNumber, setCallerNumber] = useState<string>('');
 
   const [telnyxNumbers, setTelnyxNumbers] = useState<{ phone_number: string; friendly_name: string }[]>([]);
@@ -37,7 +37,7 @@ export default function CampaignManagePage() {
         setSettings(settingsRes.data);
 
         setDialerMode(camp.dialer_mode || 'click');
-        setProvider(camp.provider || 'telnyx');
+        setProvider((camp.provider as 'telnyx' | 'twilio' | 'local') || 'telnyx');
         setCallerNumber(camp.caller_number || '');
 
         if (tnNumRes.data) setTelnyxNumbers(tnNumRes.data as any);
@@ -104,6 +104,13 @@ export default function CampaignManagePage() {
       value: 'twilio',
       description: 'Use Twilio WebRTC for connectivity.',
       icon: <Phone className="w-5 h-5" />
+    },
+    {
+      id: '3',
+      label: 'Local (SIM)',
+      value: 'local',
+      description: 'Dial via your phone\'s native dialer. No credits needed.',
+      icon: <Smartphone className="w-5 h-5" />
     }
   ];
 
@@ -148,7 +155,7 @@ export default function CampaignManagePage() {
     ? Math.round((campaign.leads_called / campaign.total_leads) * 100) 
     : 0;
 
-  const activeNumbers = provider === 'telnyx' ? telnyxNumbers : twilioNumbers;
+  const activeNumbers = provider === 'local' ? [] : provider === 'telnyx' ? telnyxNumbers : twilioNumbers;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
@@ -309,7 +316,7 @@ export default function CampaignManagePage() {
               title="Provider"
               data={providerData}
               defaultValue={provider}
-              onChange={(val) => setProvider(val as 'telnyx' | 'twilio')}
+              onChange={(val) => setProvider(val as 'telnyx' | 'twilio' | 'local')}
               disabled={isLocked}
             />
           </div>
@@ -317,9 +324,13 @@ export default function CampaignManagePage() {
           <div className="space-y-2 sm:col-span-2 mt-4">
             <label className="text-sm font-medium text-foreground">Outbound Caller ID (Optional)</label>
             <div className="flex gap-2">
-              {activeNumbers.length > 0 ? (
+              {provider === 'local' ? (
+                <div className="flex-1 h-12 flex items-center px-4 text-sm text-muted-foreground border border-border rounded-[0.85rem] bg-muted/30">
+                  Not needed for Local SIM calling
+                </div>
+              ) : activeNumbers.length > 0 ? (
                 <div className="flex-1">
-                  <Select 
+                  <Select
                     title="Outbound Caller ID"
                     defaultValue={activeNumbers.find(n => n.phone_number === callerNumber)?.phone_number || activeNumbers[0].phone_number}
                     onChange={(val) => setCallerNumber(val)}
@@ -336,7 +347,7 @@ export default function CampaignManagePage() {
                 <input
                   type="text"
                   placeholder={
-                    provider === 'telnyx' 
+                    provider === 'telnyx'
                       ? (settings?.telnyx_caller_number || '+1234567890 (No numbers found)')
                       : (settings?.twilio_caller_number || '+1234567890 (No numbers found)')
                   }
@@ -347,9 +358,11 @@ export default function CampaignManagePage() {
                 />
               )}
             </div>
-            <p className="text-xs text-muted-foreground">
-              If left blank, uses the default number configured in Connectors for the selected provider.
-            </p>
+            {provider !== 'local' && (
+              <p className="text-xs text-muted-foreground">
+                If left blank, uses the default number configured in Connectors for the selected provider.
+              </p>
+            )}
           </div>
         </div>
       </div>

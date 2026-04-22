@@ -13,7 +13,7 @@ const callLogSchema = z.object({
   status: z.string().min(1).max(50).default('completed'),
   disposition: z.string().min(1).max(50).optional().nullable(),
   notes: z.string().max(5000).optional().nullable(),
-  provider: z.enum(['telnyx', 'twilio']).default('telnyx'),
+  provider: z.enum(['telnyx', 'twilio', 'local']).default('telnyx'),
 });
 
 // POST /api/calls/log
@@ -36,7 +36,7 @@ router.post('/log', requireAuth, async (req: AuthenticatedRequest, res, next) =>
         user_id: userId,
         lead_id: validated.lead_id,
         campaign_id: validated.campaign_id || null,
-        provider: validated.provider,
+        provider: 'telnyx',
         direction: 'outbound',
         duration_seconds: validated.duration_seconds,
         status: validated.status,
@@ -104,10 +104,7 @@ router.post('/log', requireAuth, async (req: AuthenticatedRequest, res, next) =>
 router.get('/', requireAuth, async (req: AuthenticatedRequest, res, next) => {
   try {
     const userId = req.user!.id;
-    const { campaign_id, lead_id } = req.query;
-    const page = Math.max(1, Number(req.query.page) || 1);
-    const perPage = Math.min(100, Math.max(1, Number(req.query.per_page) || 25));
-    const offset = (page - 1) * perPage;
+    const { campaign_id, lead_id, limit = '50', offset = '0' } = req.query;
 
     let query = req.db!.database
       .from('call_logs')
@@ -141,7 +138,7 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res, next) => {
       query = query.eq('lead_id', lead_id as string);
     }
 
-    const { data, count, error } = await query.range(offset, offset + perPage - 1);
+    const { data, count, error } = await query.range(Number(offset), Number(offset) + Number(limit) - 1);
 
     if (error) {
       console.error('[calls/list] Query error:', error);
@@ -159,17 +156,7 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res, next) => {
       campaign: row.campaigns ? { name: row.campaigns.name } : null
     })) || [];
 
-    const total = count || 0;
-
-    res.json({
-      data: formattedData,
-      meta: {
-        total,
-        page,
-        per_page: perPage,
-        total_pages: Math.ceil(total / perPage),
-      },
-    });
+    res.json({ data: formattedData, meta: { total: count || 0, count: formattedData.length } });
   } catch (err) {
     next(err);
   }
