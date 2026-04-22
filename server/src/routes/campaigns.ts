@@ -8,21 +8,37 @@ router.use(requireAuth);
 
 const createCampaignSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100, 'Name must be under 100 characters'),
-  dialer_mode: z.enum(['preview', 'power', 'predictive']).default('preview'),
+  dialer_mode: z.enum(['preview', 'power', 'predictive', 'click']).default('preview'),
   provider: z.enum(['telnyx', 'twilio', 'local']).default('telnyx'),
+  caller_number: z.string().optional(),
 });
 
 router.get('/', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
-    const { data, error } = await req.db!
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const perPage = Math.min(100, Math.max(1, Number(req.query.per_page) || 50));
+    const offset = (page - 1) * perPage;
+
+    const { data, count, error } = await req.db!
       .database.from('campaigns')
-      .select('*')
+      .select('*', { count: 'exact' })
       .eq('user_id', req.user.id)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .range(offset, offset + perPage - 1);
 
     if (error) throw new ApiError(500, error.message, 'db_error');
 
-    res.json({ data: data || [] });
+    const total = count || 0;
+
+    res.json({
+      data: data || [],
+      meta: {
+        total,
+        page,
+        per_page: perPage,
+        total_pages: Math.ceil(total / perPage),
+      },
+    });
   } catch (error) {
     next(error);
   }
@@ -59,6 +75,7 @@ router.post('/', async (req: AuthenticatedRequest, res: Response, next: NextFunc
         name: body.name,
         dialer_mode: body.dialer_mode,
         provider: body.provider,
+        caller_number: body.caller_number || null,
         status: 'draft',
       })
       .select()
@@ -74,7 +91,7 @@ router.post('/', async (req: AuthenticatedRequest, res: Response, next: NextFunc
 
 router.patch('/:id/status', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
-    const statusSchema = z.object({ status: z.enum(['draft', 'active', 'paused', 'completed']) });
+    const statusSchema = z.object({ status: z.enum(['draft', 'scheduled', 'active', 'paused', 'completed', 'archived']) });
     const { status } = statusSchema.parse(req.body);
 
     const { data, error } = await req.db!

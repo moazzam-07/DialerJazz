@@ -1,30 +1,43 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    /* Saily inspired light mode */
-    --background: 220 33% 98%;
-    --foreground: 240 10% 4%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 4%;
+    /* ElevenLabs Exact Vibe Light Theme */
+    --background: 0 0% 100%; /* Pure White Canvas */
+    --surface: 240 5% 98%; /* Ultra Soft Gray `#FAFAFA` for sidebar & cards */
+    --surface-foreground: 0 0% 10%;
+    
+    --foreground: 0 0% 10%; /* Very dark gray, not harsh black */
+    
+    --card: 240 5% 98%;
+    --card-foreground: 0 0% 10%;
+    
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 4%;
-    --primary: 160 84% 39%;
+    --popover-foreground: 0 0% 10%;
+    
+    /* Primary Monochrome */
+    --primary: 0 0% 10%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 240 5% 96%;
-    --secondary-foreground: 240 6% 10%;
+    
+    --secondary: 240 5% 96%; 
+    --secondary-foreground: 0 0% 20%;
+    
     --muted: 240 5% 96%;
-    --muted-foreground: 240 4% 46%;
-    --accent: 160 84% 39%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 240 6% 90%;
-    --input: 240 6% 90%;
-    --ring: 160 84% 39%;
-    --radius: 1rem;
+    --muted-foreground: 240 5% 50%;
+    
+    --accent: 0 0% 96%;
+    --accent-foreground: 0 0% 10%;
+    
+    --border: 0 0% 94%; /* Barely visible border */
+    --input: 0 0% 94%;
+    --ring: 0 0% 10%;
+    
+    --radius: 1.5rem; /* Generous rounded corners by default (24px) */
+    
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
     --chart-3: 197 37% 24%;
@@ -33,31 +46,38 @@
   }
 
   .dark {
-    /* Midnight Emerald Dark Mode (Beside app inspired) */
-    --background: 240 6% 6%;
-    --foreground: 0 0% 90%;
-    --card: 240 5% 11%;
-    --card-foreground: 0 0% 90%;
-    --popover: 240 5% 11%;
-    --popover-foreground: 0 0% 90%;
-    --primary: 160 84% 39%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 240 4% 16%;
+    /* KokonutUI-inspired Dark Theme */
+    --background: 240 10% 4%; /* #0F0F12 */
+    --surface: 240 6% 10%; /* #18181B */
+    --surface-foreground: 0 0% 98%;
+    
+    --foreground: 0 0% 98%; /* Near White */
+    
+    --card: 240 10% 4%; /* #0F0F12 */
+    --card-foreground: 0 0% 98%;
+    
+    --popover: 240 10% 4%;
+    --popover-foreground: 0 0% 98%;
+    
+    /* Primary Monochrome */
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 10% 4%;
+    
+    --secondary: 240 6% 12%; /* #1F1F23 */
     --secondary-foreground: 0 0% 98%;
-    --muted: 240 4% 16%;
-    --muted-foreground: 240 5% 65%;
-    --accent: 160 84% 39%;
-    --accent-foreground: 0 0% 100%;
+    
+    --muted: 240 6% 12%;
+    --muted-foreground: 0 0% 64%;
+    
+    --accent: 240 6% 12%;
+    --accent-foreground: 0 0% 98%;
+    
     --destructive: 0 62% 30%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 4% 16%;
-    --input: 240 4% 16%;
-    --ring: 160 84% 39%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    
+    --border: 240 6% 12%; /* #1F1F23 */
+    --input: 240 6% 12%;
+    --ring: 0 0% 83%;
   }
 }
 
@@ -65,12 +85,168 @@
   * {
     @apply border-border;
   }
+  
   body {
     @apply bg-background text-foreground font-sans antialiased selection:bg-primary/20;
+    letter-spacing: 0.14px; /* Airy body text */
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    letter-spacing: -0.96px; /* Engineered tight display text */
+    line-height: 1.07;
+    font-weight: 300; /* Whisper thin for display (ElevenLabs style) */
+  }
+}
+
+@layer utilities {
+  /* Frosted Glass Utilities */
+  .glass {
+    @apply bg-card/60 backdrop-blur-3xl shadow-sm border border-black/5 dark:border-white/5;
   }
   
-  /* Glassmorphism utility */
-  .glass {
-    @apply bg-card/80 backdrop-blur-xl border border-white/10 shadow-lg;
+  .glass-solid {
+    @apply bg-card shadow-[0_4px_24px_rgba(0,0,0,0.02)] border border-black/5 dark:border-white/5;
+  }
+  
+  /* Fluid sizing and tight line heights */
+  .tracking-display {
+    letter-spacing: -0.96px;
+  }
+  
+  .tracking-body {
+    letter-spacing: 0.14px;
+  }
+}
+
+/* 
+ * React View Transitions CSS Recipes
+ */
+::view-transition-group(*) {
+  animation-duration: 0.4s;
+  animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+::view-transition-old(*),
+::view-transition-new(*) {
+  animation-duration: 0.4s;
+  animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Fade */
+.vf-fade-in { animation: vf-fade-in 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.vf-fade-out { animation: vf-fade-out 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); }
+@keyframes vf-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes vf-fade-out { from { opacity: 1; } to { opacity: 0; } }
+
+/* Slide From Right */
+.vf-slide-from-right {
+  animation: vf-fade-in 0.4s both, vf-slide-from-right 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes vf-slide-from-right { from { transform: translateX(20px); } to { transform: translateX(0); } }
+
+/* Slide To Left */
+.vf-slide-to-left {
+  animation: vf-fade-out 0.4s both, vf-slide-to-left 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes vf-slide-to-left { from { transform: translateX(0); } to { transform: translateX(-20px); } }
+
+/* ── Sign-in page animations ── */
+
+@keyframes fadeSlideIn {
+  to {
+    opacity: 1;
+    filter: blur(0px);
+    transform: translateY(0px);
+  }
+}
+
+@keyframes slideRightIn {
+  to {
+    opacity: 1;
+    filter: blur(0px);
+    transform: translateX(0px);
+  }
+}
+
+@keyframes testimonialIn {
+  to {
+    opacity: 1;
+    filter: blur(0px);
+    transform: translateY(0px) scale(1);
+  }
+}
+
+/* Base animation states */
+.animate-element {
+  opacity: 0;
+  filter: blur(8px);
+  transform: translateY(20px);
+  animation: fadeSlideIn 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.animate-slide-right {
+  opacity: 0;
+  filter: blur(8px);
+  transform: translateX(40px);
+  animation: slideRightIn 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.animate-testimonial {
+  opacity: 0;
+  filter: blur(6px);
+  transform: translateY(16px) scale(0.95);
+  animation: testimonialIn 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+/* Stagger delay classes */
+.animate-delay-100  { animation-delay: 0.1s; }
+.animate-delay-200  { animation-delay: 0.2s; }
+.animate-delay-300  { animation-delay: 0.3s; }
+.animate-delay-400  { animation-delay: 0.4s; }
+.animate-delay-500  { animation-delay: 0.5s; }
+.animate-delay-600  { animation-delay: 0.6s; }
+.animate-delay-700  { animation-delay: 0.7s; }
+.animate-delay-800  { animation-delay: 0.8s; }
+.animate-delay-900  { animation-delay: 0.9s; }
+.animate-delay-1000 { animation-delay: 1.0s; }
+.animate-delay-1200 { animation-delay: 1.2s; }
+.animate-delay-1400 { animation-delay: 1.4s; }
+
+/* Custom checkbox */
+.custom-checkbox {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid hsl(var(--border));
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+}
+.custom-checkbox:checked {
+  background: hsl(var(--primary));
+  border-color: hsl(var(--primary));
+}
+.custom-checkbox:checked::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 2px;
+  width: 5px;
+  height: 9px;
+  border: solid hsl(var(--primary-foreground));
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+/* Respect User Preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }

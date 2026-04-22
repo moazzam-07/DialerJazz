@@ -12,12 +12,19 @@ import {
   Mail,
   Zap,
   MousePointerClick,
-  Edit3
+  Edit3,
+  Link,
+  Globe,
+  Navigation,
+  ChevronDown,
+  Tag,
+  Copy,
+  Info
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { callsApi, leadsApi, campaignsApi } from '@/lib/api';
 import type { Lead, Campaign } from '@/lib/api';
-import { useTelnyxContext } from '@/contexts/TelnyxContext';
+import { useVoice } from '@/contexts/VoiceContext';
 import type { CallState } from '@/contexts/TelnyxContext';
 import { useLocalCalling } from '@/hooks/useLocalCalling';
 import CallControls from '@/components/CallControls';
@@ -28,13 +35,13 @@ type DialerMode = 'power' | 'click';
 type Disposition = 'answered' | 'follow_up' | 'not_interested' | 'no_answer' | 'voicemail' | 'busy' | 'dnc';
 
 const DISPOSITIONS: { value: Disposition; label: string; color: string; emoji: string; primary?: boolean }[] = [
-  { value: 'answered',       label: 'Interested',     color: 'bg-emerald-500', emoji: '🔥', primary: true },
-  { value: 'follow_up',      label: 'Follow-up',      color: 'bg-indigo-500', emoji: '🤝', primary: true },
-  { value: 'not_interested',label: 'Not Interested', color: 'bg-zinc-500',   emoji: '❄️', primary: true },
-  { value: 'no_answer',      label: 'No Answer',      color: 'bg-amber-500', emoji: '📵' },
-  { value: 'voicemail',      label: 'Voicemail',       color: 'bg-purple-500',emoji: '📩' },
-  { value: 'busy',           label: 'Wrong Number',    color: 'bg-orange-500',emoji: '❌' },
-  { value: 'dnc',            label: 'Do Not Call',     color: 'bg-red-500',   emoji: '🚫' },
+  { value: 'answered',       label: 'Interested',     color: 'bg-foreground text-background', emoji: '🔥', primary: true },
+  { value: 'follow_up',      label: 'Follow-up',      color: 'bg-foreground text-background', emoji: '🤝', primary: true },
+  { value: 'not_interested',label: 'Not Interested', color: 'bg-muted text-foreground',   emoji: '❄️', primary: true },
+  { value: 'no_answer',      label: 'No Answer',      color: 'bg-muted text-foreground', emoji: '📵' },
+  { value: 'voicemail',      label: 'Voicemail',       color: 'bg-muted text-foreground',emoji: '📩' },
+  { value: 'busy',           label: 'Wrong Number',    color: 'bg-muted text-foreground',emoji: '❌' },
+  { value: 'dnc',            label: 'Do Not Call',     color: 'bg-muted text-foreground',   emoji: '🚫' },
 ];
 
 
@@ -51,26 +58,20 @@ export default function CampaignDialerPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // New State Flow — restore mode from localStorage so returning to the campaign skips mode selection
-  const [dialerSessionMode, setDialerSessionMode] = useState<DialerMode | null>(
-    () => {
-      const saved = localStorage.getItem(`dialer_mode_${campaignId}`);
-      return (saved === 'power' || saved === 'click') ? saved : null;
-    }
-  );
+  const dialerSessionMode = (campaign?.dialer_mode as DialerMode) || 'click';
   const [showDisposition, setShowDisposition] = useState(false);
   const [isDisposing, setIsDisposing] = useState(false);
   const [showDTMF, setShowDTMF] = useState(false);
   const [notes, setNotes] = useState('');
-  // Telnyx (from global context — connection managed by DashboardLayout)
-  const telnyx = useTelnyxContext();
+  const [isDetailsExpanded, setIsDetailsExpanded] = useState(false);
+  // Voice (from unified context — delegates to Telnyx or Twilio)
+  const voice = useVoice();
   const prevCallState = useRef<CallState>('idle');
 
   // Local SIM calling — triggers disposition when user returns from native dialer
   const handleLocalCallReturn = useCallback(() => {
     setShowDisposition(true);
   }, []);
-
   const { call: localCall } = useLocalCalling(handleLocalCallReturn);
 
   // Load backend data
@@ -118,49 +119,58 @@ export default function CampaignDialerPage() {
   // Track this route for the ActiveCallBubble (so it knows where to return).
   // Deliberately NOT clearing on unmount — the route must persist after
   // navigation so the bubble can show it. It gets cleared when the call ends.
-  const isOnCall = ['trying', 'ringing', 'active'].includes(telnyx.primaryCallState);
+  const isOnCall = ['trying', 'ringing', 'active'].includes(voice.primaryCallState);
   useEffect(() => {
     if (campaignId && !isOnCall) {
-      telnyx.setActiveCallRoute(`/campaigns/${campaignId}/dial`);
+      voice.setActiveCallRoute(`/campaigns/${campaignId}/dial`);
     }
   }, [campaignId]);
+
+  // Auto-connect to campaign's provider when campaign loads
+  useEffect(() => {
+    if (campaign?.provider && campaign.provider !== 'local' && voice.activeProvider !== campaign.provider) {
+      voice.connectProvider(campaign.provider);
+    }
+  }, [campaign?.provider]);
 
   // Handle call lifecycle — show disposition after ANY call attempt ends
   useEffect(() => {
     const wasCallAttempt = ['trying', 'ringing', 'active'].includes(prevCallState.current);
-    if (wasCallAttempt && telnyx.primaryCallState === 'done') {
+    if (wasCallAttempt && voice.primaryCallState === 'done') {
       // Call ended (whether connected or not) -> Show disposition overlay
       setShowDisposition(true);
       setShowDTMF(false);
     }
-    prevCallState.current = telnyx.primaryCallState;
-  }, [telnyx.primaryCallState]);
+    prevCallState.current = voice.primaryCallState;
+  }, [voice.primaryCallState]);
 
   useEffect(() => {
-    if (telnyx.sipError) toast.error(telnyx.sipError, { duration: 5000 });
-  }, [telnyx.sipError]);
+    if (voice.sipError) toast.error(voice.sipError, { duration: 5000 });
+  }, [voice.sipError]);
 
   const currentLead = leads[currentIndex];
   // Maintain context
   useEffect(() => {
     if (currentLead) setNotes(currentLead.notes || '');
+    setIsDetailsExpanded(false); // reset on next lead
   }, [currentLead]);
 
   const handleDial = () => {
     if (!currentLead) return;
 
+    // Local SIM: use tel: URI, skip WebRTC entirely
     if (campaign?.provider === 'local') {
       localCall(currentLead.phone);
       return;
     }
 
-    if (!telnyx.sipConfigured) return toast.error('Configure Telnyx SIP in Connectors first.');
-    if (telnyx.connectionStatus !== 'registered') return toast.error('Connecting...');
-    telnyx.dial(currentLead.phone);
+    if (!voice.sipConfigured) return toast.error('Configure a telephony provider in Connectors first.');
+    if (voice.connectionStatus !== 'registered') return toast.error('Connecting...');
+    voice.dial(currentLead.phone);
   };
 
   const handleHangUp = () => {
-    telnyx.hangup();
+    voice.hangup();
   };
 
   const handleDisposition = async (dispositionLabel: string) => {
@@ -171,7 +181,7 @@ export default function CampaignDialerPage() {
       const dispValue = DISPOSITIONS.find(d => d.label === dispositionLabel)?.value || 'answered';
       
       // Get call duration - ensure it's a valid number
-      const callDuration = typeof telnyx.primaryCallDuration === 'number' ? telnyx.primaryCallDuration : 0;
+      const callDuration = typeof voice.primaryCallDuration === 'number' ? voice.primaryCallDuration : 0;
       console.log('[CampaignDialer] Saving call - duration:', callDuration, 'disposition:', dispValue);
       
       // Log the full call event, duration, and disposition to our new calls API
@@ -278,96 +288,57 @@ export default function CampaignDialerPage() {
   if (!campaignId) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
-        <AlertCircle className="h-12 w-12 text-zinc-600 mb-4" />
-        <h2 className="text-xl font-semibold text-zinc-400">No campaign selected</h2>
+        <AlertCircle className="h-12 w-12 text-muted-foreground text-opacity-50 mb-4" />
+        <h2 className="text-xl font-semibold text-muted-foreground">No campaign selected</h2>
       </div>
     );
   }
-  if (isLoading) return <div className="flex justify-center py-40"><Loader2 className="h-8 w-8 animate-spin text-emerald-500" /></div>;
+  if (isLoading) return <div className="flex justify-center py-40"><Loader2 className="h-8 w-8 animate-spin text-foreground" /></div>;
   
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center max-w-md mx-auto">
         <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
-        <h2 className="text-2xl font-bold text-white mb-2">Error Loading Dialer</h2>
-        <p className="text-zinc-400 mb-6">{error}</p>
-        <button onClick={() => navigate('/login')} className="bg-white/10 text-white px-6 py-2 rounded-xl transition-colors hover:bg-white/20 font-medium">Re-authenticate</button>
+        <h2 className="text-2xl font-bold text-foreground mb-2">Error Loading Dialer</h2>
+        <p className="text-muted-foreground mb-6">{error}</p>
+        <button onClick={() => navigate('/login')} className="bg-muted hover:bg-muted/80 text-foreground px-6 py-2 rounded-xl transition-colors hover:bg-white/20 font-medium">Re-authenticate</button>
       </div>
     );
   }
 
   if (leads.length === 0) return <div className="text-center py-40"><h2 className="text-2xl font-bold">All leads dialed!</h2></div>;
 
-  // Helper: persist mode to localStorage when selected
-  const selectDialerMode = (mode: DialerMode) => {
-    setDialerSessionMode(mode);
-    if (campaignId) localStorage.setItem(`dialer_mode_${campaignId}`, mode);
-  };
+
 
   // Helper: check if a lead has already been dialed
   const isLeadDialed = (lead: Lead) => lead.status !== 'new' && lead.status !== 'calling';
 
-  // -- Pre-Dial Selection Screen --
-  if (!dialerSessionMode) {
-    return (
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-4xl mx-auto py-12">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-extrabold tracking-tight text-white mb-4">Choose Dialing Mode</h1>
-          <p className="text-xl text-zinc-400">How do you want to handle these {leads.length} leads?</p>
-        </div>
-        <div className="grid md:grid-cols-2 gap-6">
-          <button onClick={() => selectDialerMode('power')} className="group relative bg-[#1A1A1E] border border-white/10 hover:border-emerald-500/50 p-10 rounded-3xl text-left transition-all hover:shadow-[0_0_40px_rgba(16,185,129,0.1)]">
-            <div className="h-16 w-16 bg-emerald-500/10 text-emerald-500 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-              <Zap className="h-8 w-8" />
-            </div>
-            <h2 className="text-2xl font-bold text-white mb-3">Power Dialer</h2>
-            <p className="text-zinc-400 leading-relaxed">
-              Automated high-speed dialing. After selecting a disposition, the system automatically swipes to the next card and dials immediately.
-            </p>
-          </button>
-          
-          <button onClick={() => selectDialerMode('click')} className="group relative bg-[#1A1A1E] border border-white/10 hover:border-blue-500/50 p-10 rounded-3xl text-left transition-all hover:shadow-[0_0_40px_rgba(59,130,246,0.1)]">
-            <div className="h-16 w-16 bg-blue-500/10 text-blue-500 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-              <MousePointerClick className="h-8 w-8" />
-            </div>
-            <h2 className="text-2xl font-bold text-white mb-3">Click-to-Call</h2>
-            <p className="text-zinc-400 leading-relaxed">
-              Manual control. Manually click to dial, edit notes after hanging up, and physically swipe left to proceed when you are fully ready.
-            </p>
-          </button>
-        </div>
-      </motion.div>
-    );
-  }
+
 
   // -- Main Dialer Card Stack UI --
-  const isInCall = ['trying', 'ringing', 'active'].includes(telnyx.primaryCallState);
+  const isInCall = ['trying', 'ringing', 'active'].includes(voice.primaryCallState);
 
   return (
     <div className="flex flex-col h-[calc(100vh-80px)] overflow-hidden bg-black animate-in fade-in duration-700">
       {/* Top Header */}
       <header className="flex items-center justify-between p-6 shrink-0 z-10">
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate('/campaigns')} className="p-2 bg-white/5 rounded-xl hover:bg-white/10 text-white transition-colors">
+          <button onClick={() => navigate('/campaigns')} className="p-2 bg-muted rounded-xl hover:bg-black/5 dark:hover:bg-white/5 border border-transparent hover:border-black/10 dark:hover:border-white/10 text-foreground transition-all">
             <ArrowLeft className="h-5 w-5" />
           </button>
           <div>
-            <h1 className="font-bold text-lg text-white">{campaign?.name}</h1>
-            <div className="flex items-center gap-2 text-xs text-zinc-500 font-medium tracking-wider uppercase">
-               {dialerSessionMode === 'power' ? <Zap className="h-3 w-3 text-emerald-500" /> : <MousePointerClick className="h-3 w-3 text-blue-500"/>}
+            <h1 className="font-bold tracking-display text-lg text-foreground">{campaign?.name}</h1>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground text-opacity-70 font-medium tracking-widest uppercase">
+               {dialerSessionMode === 'power' ? <Zap className="h-3 w-3 text-foreground" /> : <MousePointerClick className="h-3 w-3 text-foreground"/>}
                {dialerSessionMode} Mode • {calledLeadsCount + currentIndex + 1} of {totalLeadsCount} leads
              </div>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {campaign?.provider === 'local' ? (
-            <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full text-xs font-bold leading-none flex items-center gap-1.5">
-              📱 Local SIM
-            </span>
-          ) : telnyx.connectionStatus === 'registered' ? (
-             <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full text-xs font-bold leading-none flex items-center gap-1.5"><div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"/> SIP Registered</span>
+          {voice.connectionStatus === 'registered' ? (
+             <span className="px-3 py-1 bg-background text-foreground border border-black/10 dark:border-white/10 rounded-full text-xs font-bold leading-none flex items-center gap-1.5 shadow-sm"><div className="h-1.5 w-1.5 rounded-full bg-foreground animate-pulse"/> SIP Registered</span>
           ) : (
-             <span className="px-3 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-full text-xs font-bold leading-none flex items-center gap-1.5"><Loader2 className="h-3 w-3 animate-spin"/> Connecting</span>
+             <span className="px-3 py-1 bg-muted text-muted-foreground border border-border rounded-full text-xs font-bold leading-none flex items-center gap-1.5"><Loader2 className="h-3 w-3 animate-spin"/> Connecting</span>
           )}
         </div>
       </header>
@@ -377,8 +348,8 @@ export default function CampaignDialerPage() {
         
         {/* Background Hint layer */}
         <div className="absolute inset-0 flex items-center justify-between px-10 pointer-events-none opacity-20">
-            <div className="flex flex-col items-center gap-2"><ArrowLeft className="h-10 w-10 text-white"/><span className="font-bold uppercase tracking-widest text-zinc-400">Next</span></div>
-            <div className="flex flex-col items-center gap-2"><ArrowLeft className="h-10 w-10 rotate-180 text-white"/><span className="font-bold uppercase tracking-widest text-zinc-400">Previous</span></div>
+            <div className="flex flex-col items-center gap-2"><ArrowLeft className="h-10 w-10 text-foreground"/><span className="font-bold uppercase tracking-widest text-muted-foreground">Next</span></div>
+            <div className="flex flex-col items-center gap-2"><ArrowLeft className="h-10 w-10 rotate-180 text-foreground"/><span className="font-bold uppercase tracking-widest text-muted-foreground">Previous</span></div>
         </div>
 
         {/* Card Deck */}
@@ -387,7 +358,7 @@ export default function CampaignDialerPage() {
           {/* Card Next (Behind) */}
           {leads[currentIndex + 1] && (
             <motion.div 
-              className="absolute w-full h-full bg-[#161618] border border-white/5 shadow-2xl rounded-3xl"
+              className="absolute w-full h-full bg-surface/50 backdrop-blur-xl border border-border/50 shadow-2xl rounded-3xl"
               initial={{ scale: 0.95, y: 20, z: -50 }}
               animate={{ scale: 0.95, y: 20, z: -50 }}
             />
@@ -397,69 +368,118 @@ export default function CampaignDialerPage() {
           {currentLead ? (
             <motion.div 
               key={currentLead.id}
-              drag={!isInCall && !showDisposition}
+              drag={!isInCall && !showDisposition && !isDetailsExpanded} // Disable swipe if details expanded
               dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
               onDragEnd={handleDragEnd}
               animate={controls}
-              className="absolute w-full h-full bg-[#1A1A1E] border border-white/10 shadow-2xl shadow-black/50 rounded-3xl p-6 flex flex-col cursor-grab active:cursor-grabbing transform-gpu"
+              className="absolute w-full h-full glass-solid rounded-[2rem] p-6 flex flex-col cursor-grab active:cursor-grabbing transform-gpu overflow-hidden"
               style={{ paddingBottom: '90px' }} // Room for dial button mapping
             >
-              {/* Card Contents */}
-              <div className="flex flex-col items-center text-center mt-6 mb-8 relative">
-{/* Dialed checkmark badge */}
-                  {isLeadDialed(currentLead) && (
-                    <div className="absolute -top-2 -right-2 h-7 w-7 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/30 z-20">
-                      <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                    </div>
-                  )}
-                  {campaign?.provider === 'local' && (
-                    <div className="absolute -top-2 -left-2 px-2 py-0.5 bg-emerald-500/20 border border-emerald-500/30 rounded-full text-[10px] font-bold text-emerald-400 uppercase tracking-widest z-20">
-                      📱 Local SIM
-                    </div>
-                  )}
-                 <div className="h-24 w-24 rounded-full bg-gradient-to-br from-emerald-500/20 to-emerald-700/10 border border-emerald-500/30 flex items-center justify-center mb-4">
-                    <User className="h-10 w-10 text-emerald-500" />
+                  <button 
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setIsDetailsExpanded(!isDetailsExpanded); }}
+                    className="absolute top-6 right-6 z-30 h-10 w-10 bg-black/10 dark:bg-white/5 hover:bg-black/20 dark:hover:bg-white/10 rounded-full flex items-center justify-center transition-colors pointer-events-auto"
+                    title="Toggle Expand"
+                  >
+                    {isDetailsExpanded ? <ChevronDown className="h-5 w-5 text-foreground" /> : <Info className="h-5 w-5 text-foreground" />}
+                  </button>
+                  <div className="flex flex-col items-center text-center mt-6 mb-4 relative z-10 pointer-events-none">
+                 {/* Dialed checkmark badge */}
+                 {isLeadDialed(currentLead) && (
+                   <div className="absolute -top-2 -right-2 h-7 w-7 rounded-full bg-foreground text-background flex items-center justify-center shadow-sm z-20">
+                     <svg className="h-4 w-4 bg-transparent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                   </div>
+                 )}
+                 <div className="h-24 w-24 rounded-full bg-muted border border-black/5 dark:border-white/5 shadow-sm flex items-center justify-center mb-4">
+                    <User className="h-10 w-10 text-foreground" />
                  </div>
-                 <h2 className="text-3xl font-extrabold tracking-tight text-white">{currentLead.first_name} {currentLead.last_name || ''}</h2>
-                 {currentLead.company && <h3 className="text-lg text-emerald-400 font-medium mt-1">{currentLead.company}</h3>}
+                 <h2 className="text-3xl font-extrabold tracking-display text-foreground">{currentLead.first_name} {currentLead.last_name || ''}</h2>
+                 {currentLead.company && <h3 className="text-lg text-muted-foreground font-medium mt-1 tracking-body">{currentLead.company}</h3>}
               </div>
 
-              <div className="space-y-4 mb-6 relative z-10 bg-black/20 rounded-2xl p-4 border border-white/5">
-                 <div className="flex items-center gap-3">
-                    <Phone className="h-4 w-4 text-zinc-500 shrink-0" />
-                    <span className="text-lg font-mono font-semibold text-zinc-200">{currentLead.phone}</span>
-                 </div>
-                 {currentLead.email && (
-                 <div className="flex items-center gap-3">
-                    <Mail className="h-4 w-4 text-zinc-500 shrink-0" />
-                    <span className="text-sm font-medium text-zinc-300 truncate">{currentLead.email}</span>
-                 </div>
-                 )}
-                 {(currentLead.city || currentLead.state) && (
-                 <div className="flex items-center gap-3">
-                    <MapPin className="h-4 w-4 text-zinc-500 shrink-0" />
-                    <span className="text-sm font-medium text-zinc-300 truncate">{currentLead.city}, {currentLead.state}</span>
-                 </div>
-                 )}
-              </div>
+              <div 
+                className="flex-1 flex flex-col gap-2 relative z-10 overflow-y-auto no-scrollbar pointer-events-auto pb-4" 
+                onPointerDownCapture={(e) => {
+                  // If details are expanded, touching this area should not drag the card (already handled by drag={!isDetailsExpanded})
+                  if (isDetailsExpanded) e.stopPropagation();
+                }}
+              >
+                <div className="space-y-4 mb-2 relative z-10 bg-black/20 rounded-2xl p-4 border border-border shrink-0">
+                   <div className="flex items-center gap-3">
+                      <Phone className="h-4 w-4 text-muted-foreground text-opacity-70 shrink-0" />
+                      <span className="text-lg font-mono font-semibold text-foreground">{currentLead.phone}</span>
+                   </div>
+                   {currentLead.email && !isDetailsExpanded && (
+                   <div className="flex items-center gap-3">
+                      <Mail className="h-4 w-4 text-muted-foreground text-opacity-70 shrink-0" />
+                      <span className="text-sm font-medium text-foreground text-opacity-90 truncate">{currentLead.email}</span>
+                   </div>
+                   )}
+                   {(currentLead.city || currentLead.state) && (
+                   <div className="flex items-center gap-3">
+                      <MapPin className="h-4 w-4 text-muted-foreground text-opacity-70 shrink-0" />
+                      <span className="text-sm font-medium text-foreground text-opacity-90 truncate">{currentLead.city}, {currentLead.state}</span>
+                   </div>
+                   )}
+                </div>
 
-              {/* Editable Tags / Notes Layer (Always present, but easier to type when static) */}
-              <div className="flex-1 flex flex-col gap-2 relative z-10">
-                 <div className="flex items-center gap-2 mb-1 px-1">
-                    <Edit3 className="h-3 w-3 text-zinc-500" />
-                    <span className="text-xs uppercase font-bold text-zinc-500 tracking-wider">Scratchpad</span>
-                 </div>
-                 <textarea 
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Jot down notes before, during, or after the call..."
-                    className="w-full flex-1 bg-white/[0.02] border border-white/5 rounded-xl resize-none p-3 text-sm text-zinc-300 hover:bg-white/[0.04] focus:bg-white/[0.04] focus:border-emerald-500/30 focus:outline-none transition-colors"
-                 />
+                {isDetailsExpanded && (
+                   <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-4 mt-2 shrink-0">
+                      
+                      {/* Social/Link grid */}
+                      <div className="grid grid-cols-2 gap-2">
+                        {currentLead.website && (
+                            <a href={currentLead.website} target="_blank" rel="noreferrer" className="flex items-center gap-2 p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 text-xs font-medium text-foreground">
+                              <Globe className="h-4 w-4 shrink-0 text-blue-400" /> <span className="truncate">Website</span>
+                            </a>
+                        )}
+                        {currentLead.linkedin_url && (
+                            <a href={currentLead.linkedin_url} target="_blank" rel="noreferrer" className="flex items-center gap-2 p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 text-xs font-medium text-foreground">
+                              <Link className="h-4 w-4 shrink-0 text-blue-500" /> <span className="truncate">LinkedIn</span>
+                            </a>
+                        )}
+                        {currentLead.google_maps_url && (
+                            <a href={currentLead.google_maps_url} target="_blank" rel="noreferrer" className="flex items-center gap-2 p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 text-xs font-medium text-foreground">
+                              <Navigation className="h-4 w-4 shrink-0 text-green-400" /> <span className="truncate">Maps</span>
+                            </a>
+                        )}
+                        {currentLead.email && (
+                            <button onClick={() => { navigator.clipboard.writeText(currentLead.email!); toast.success('Copied email') }} className="flex items-center gap-2 p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 text-xs font-medium text-foreground text-left">
+                              <Copy className="h-4 w-4 shrink-0 text-muted-foreground" /> <span className="truncate">{currentLead.email}</span>
+                            </button>
+                        )}
+                      </div>
+
+                      {/* Tags */}
+                      {currentLead.tags && currentLead.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-2 px-1">
+                              {currentLead.tags.map((tag: string, i: number) => (
+                                  <span key={i} className="px-2.5 py-1 bg-black/30 dark:bg-black/40 border border-white/10 rounded-md text-xs font-mono text-white/90 flex items-center gap-1.5 backdrop-blur-sm"><Tag className="w-3 h-3 text-emerald-400" /> {tag}</span>
+                              ))}
+                          </div>
+                      )}
+                   </motion.div>
+                )}
+
+                {/* Editable Tags / Notes Layer */}
+                <div className="flex-1 flex flex-col gap-2 relative z-10 shrink-0 mt-2">
+                   <div className="flex items-center gap-2 mb-1 px-1">
+                      <Edit3 className="h-3 w-3 text-muted-foreground text-opacity-70" />
+                      <span className="text-xs uppercase font-bold text-muted-foreground text-opacity-70 tracking-widest">Scratchpad</span>
+                   </div>
+                   <textarea 
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      onPointerDownCapture={(e) => e.stopPropagation()} // Make sure we can select and scroll inside textarea
+                      placeholder="Jot down notes before, during, or after the call..."
+                      className="w-full min-h-[120px] flex-1 bg-white/[0.02] border border-black/5 dark:border-white/5 rounded-xl resize-none p-3 text-sm text-foreground text-opacity-90 hover:bg-white/[0.04] focus:bg-white/[0.04] focus:ring-1 focus:ring-foreground/20 focus:border-foreground/30 focus:outline-none transition-colors"
+                   />
+                </div>
               </div>
 
               {/* Call Controls (Dial / Hang Up / DTMF Toggle) */}
               <CallControls
-                callState={telnyx.primaryCallState}
+                callState={voice.primaryCallState}
                 dialerMode={dialerSessionMode!}
                 onDial={handleDial}
                 onHangUp={handleHangUp}
@@ -468,11 +488,11 @@ export default function CampaignDialerPage() {
 
               {/* In-Call HUD (Timer + Visualizer + DTMF) */}
               <InCallHUD
-                callState={telnyx.primaryCallState}
-                callDuration={telnyx.primaryCallDuration}
-                remoteStream={telnyx.primaryCall?.remoteStream || null}
+                callState={voice.primaryCallState}
+                callDuration={voice.primaryCallDuration}
+                remoteStream={voice.primaryCall?.remoteStream || null}
                 showDTMF={showDTMF}
-                onSendDTMF={telnyx.sendDTMF}
+                onSendDTMF={voice.sendDTMF}
               />
 
               {/* Post-Call Disposition Bottom Sheet */}
@@ -485,7 +505,7 @@ export default function CampaignDialerPage() {
             </motion.div>
           ) : (
             <div className="text-center">
-              <h2 className="text-2xl font-bold text-zinc-600">No leads available</h2>
+              <h2 className="text-2xl font-bold text-muted-foreground text-opacity-50">No leads available</h2>
             </div>
           )}
 
@@ -493,8 +513,8 @@ export default function CampaignDialerPage() {
       </main>
 
       {/* Hidden audio element for remote stream playback */}
-      {telnyx.primaryCall?.remoteStream && (
-        <audio autoPlay ref={(el) => { if (el && telnyx.primaryCall?.remoteStream) { el.srcObject = telnyx.primaryCall.remoteStream; } }} />
+      {voice.primaryCall?.remoteStream && (
+        <audio autoPlay ref={(el) => { if (el && voice.primaryCall?.remoteStream) { el.srcObject = voice.primaryCall.remoteStream; } }} />
       )}
     </div>
   );

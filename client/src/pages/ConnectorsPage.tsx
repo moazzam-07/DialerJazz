@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { Plug, CheckCircle2, XCircle, ArrowRight, Smartphone } from 'lucide-react';
 import { settingsApi } from '@/lib/api';
 import type { UserSettings } from '@/lib/api';
+import Select from '@/components/ui/select';
 
 export default function ConnectorsPage() {
   const [settings, setSettings] = useState<UserSettings | null>(null);
@@ -17,6 +18,26 @@ export default function ConnectorsPage() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [isSavingSip, setIsSavingSip] = useState(false);
 
+  // Twilio Modal State
+  const [isTwilioModalOpen, setIsTwilioModalOpen] = useState(false);
+  const [twilioAccountSid, setTwilioAccountSid] = useState('');
+  const [twilioAuthToken, setTwilioAuthToken] = useState('');
+  const [twilioApiKey, setTwilioApiKey] = useState('');
+  const [twilioApiSecret, setTwilioApiSecret] = useState('');
+  const [twilioTwimlAppSid, setTwilioTwimlAppSid] = useState('');
+  const [twilioCallerNumber, setTwilioCallerNumber] = useState('');
+  const [isVerifyingTwilio, setIsVerifyingTwilio] = useState(false);
+  const [isSavingTwilio, setIsSavingTwilio] = useState(false);
+
+  // Phone Numbers & Balances State
+  const [telnyxBalance, setTelnyxBalance] = useState<{ balance: string; currency: string } | null>(null);
+  const [telnyxNumbers, setTelnyxNumbers] = useState<{ phone_number: string; friendly_name: string }[]>([]);
+  const [isLoadingTelnyxData, setIsLoadingTelnyxData] = useState(false);
+
+  const [twilioBalance, setTwilioBalance] = useState<{ balance: string; currency: string } | null>(null);
+  const [twilioNumbers, setTwilioNumbers] = useState<{ phone_number: string; friendly_name: string }[]>([]);
+  const [isLoadingTwilioData, setIsLoadingTwilioData] = useState(false);
+
   useEffect(() => {
     fetchSettings();
   }, []);
@@ -29,6 +50,35 @@ export default function ConnectorsPage() {
       if (data?.telnyx_sip_login) setSipLogin(data.telnyx_sip_login);
       if (data?.telnyx_sip_password) setSipPassword(data.telnyx_sip_password);
       if (data?.telnyx_caller_number) setCallerNumber(data.telnyx_caller_number);
+      // Pre-fill Twilio fields if they exist
+      if (data?.twilio_account_sid) setTwilioAccountSid(data.twilio_account_sid);
+      if (data?.twilio_api_key) setTwilioApiKey(data.twilio_api_key);
+      if (data?.twilio_api_secret) setTwilioApiSecret(data.twilio_api_secret);
+      if (data?.twilio_twiml_app_sid) setTwilioTwimlAppSid(data.twilio_twiml_app_sid);
+      if (data?.twilio_caller_number) setTwilioCallerNumber(data.twilio_caller_number);
+
+      // Fetch Provider Data in parallel
+      if (data?.telnyx_api_key) {
+        setIsLoadingTelnyxData(true);
+        Promise.all([settingsApi.getTelnyxBalance(), settingsApi.getTelnyxNumbers()])
+          .then(([balanceRes, numbersRes]) => {
+            if (balanceRes.data) setTelnyxBalance(balanceRes.data);
+            if (numbersRes.data) setTelnyxNumbers(numbersRes.data);
+          })
+          .catch(() => console.error('Failed to fetch Telnyx data'))
+          .finally(() => setIsLoadingTelnyxData(false));
+      }
+
+      if (data?.twilio_account_sid && data?.twilio_auth_token) {
+        setIsLoadingTwilioData(true);
+        Promise.all([settingsApi.getTwilioBalance(), settingsApi.getTwilioNumbers()])
+          .then(([balanceRes, numbersRes]) => {
+            if (balanceRes.data) setTwilioBalance(balanceRes.data);
+            if (numbersRes.data) setTwilioNumbers(numbersRes.data);
+          })
+          .catch(() => console.error('Failed to fetch Twilio data'))
+          .finally(() => setIsLoadingTwilioData(false));
+      }
     } catch (error: unknown) {
       toast.error('Failed to load settings');
     } finally {
@@ -38,6 +88,8 @@ export default function ConnectorsPage() {
 
   const hasTelnyxKey = !!settings?.telnyx_api_key;
   const hasSipCreds = !!settings?.telnyx_sip_login && !!settings?.telnyx_sip_password;
+  const hasTwilioKey = !!settings?.twilio_account_sid;
+  const hasTwilioApiCreds = !!settings?.twilio_api_key && !!settings?.twilio_api_secret && !!settings?.twilio_twiml_app_sid;
 
   const handleVerifyTelnyx = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,10 +140,52 @@ export default function ConnectorsPage() {
     }
   };
 
+  // === Twilio Handlers ===
+  const handleVerifyTwilio = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!twilioAccountSid.trim() || !twilioAuthToken.trim()) {
+      toast.error('Account SID and Auth Token are required');
+      return;
+    }
+    setIsVerifyingTwilio(true);
+    try {
+      const result = await settingsApi.verifyTwilio(twilioAccountSid, twilioAuthToken);
+      toast.success(result.data?.message || 'Twilio credentials verified!');
+      fetchSettings();
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Verification failed');
+    } finally {
+      setIsVerifyingTwilio(false);
+    }
+  };
+
+  const handleSaveTwilioCreds = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!twilioApiKey.trim() || !twilioApiSecret.trim() || !twilioTwimlAppSid.trim()) {
+      toast.error('API Key, API Secret, and TwiML App SID are all required');
+      return;
+    }
+    setIsSavingTwilio(true);
+    try {
+      await settingsApi.update({
+        twilio_api_key: twilioApiKey,
+        twilio_api_secret: twilioApiSecret,
+        twilio_twiml_app_sid: twilioTwimlAppSid,
+        twilio_caller_number: twilioCallerNumber || undefined,
+      });
+      toast.success('Twilio WebRTC credentials saved!');
+      fetchSettings();
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Failed to save Twilio credentials');
+    } finally {
+      setIsSavingTwilio(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex h-[50vh] items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent"></div>
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-foreground border-t-transparent"></div>
       </div>
     );
   }
@@ -99,21 +193,21 @@ export default function ConnectorsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-white mb-2">Connectors</h1>
-        <p className="text-zinc-400">Manage your external telephony and CRM integrations.</p>
+        <h1 className="text-3xl font-bold tracking-tight text-foreground mb-2">Connectors</h1>
+        <p className="text-muted-foreground">Manage your external telephony and CRM integrations.</p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {/* Telnyx Card */}
-        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#1A1A1E] p-6 transition-all hover:border-emerald-500/30">
+        <div className="relative overflow-hidden rounded-[1.5rem] border border-black/5 dark:border-white/5 bg-surface p-6 transition-all duration-300 hover:shadow-[0_8px_30px_rgba(0,0,0,0.04)]">
           <div className="flex items-start justify-between">
-            <div className="h-12 w-12 rounded-xl bg-green-500 flex items-center justify-center text-black font-bold text-lg mb-4">
+            <div className="h-12 w-12 rounded-[0.85rem] bg-foreground flex items-center justify-center text-background font-bold text-lg mb-4 shadow-sm">
                Tx
             </div>
             <div className="flex flex-col items-end gap-2">
               {hasTelnyxKey ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-500 border border-emerald-500/20">
-                  <CheckCircle2 className="h-3 w-3" />
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-background px-3 py-1 text-xs font-semibold uppercase tracking-wider text-foreground border border-black/10 dark:border-white/10 shadow-sm">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
                   API Connected
                 </span>
               ) : (
@@ -123,47 +217,98 @@ export default function ConnectorsPage() {
                 </span>
               )}
               {hasSipCreds && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2.5 py-1 text-xs font-medium text-blue-500 border border-blue-500/20">
-                  <CheckCircle2 className="h-3 w-3" />
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground border border-border mt-1">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
                   SIP Ready
+                </span>
+              )}
+              {telnyxBalance && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/10 px-3 py-1 text-xs font-semibold tracking-wider text-blue-600 border border-blue-500/20 mt-1">
+                  Balance: {telnyxBalance.currency} {telnyxBalance.balance}
                 </span>
               )}
             </div>
           </div>
           
-          <h3 className="text-xl font-bold text-white mb-2">Telnyx WebRTC</h3>
-          <p className="text-sm text-zinc-400 mb-6">
+          <h3 className="text-xl font-bold text-foreground mb-2">Telnyx WebRTC</h3>
+          <p className="text-sm text-muted-foreground mb-6">
             Power outbound dialing and live call tracking directly from the browser using standard WebRTC.
           </p>
           
           <button
             onClick={() => setIsTelnyxModalOpen(true)}
-            className="group flex w-full items-center justify-between rounded-xl bg-white/5 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-emerald-500 hover:text-black"
+            className="group flex w-full items-center justify-between rounded-[0.85rem] bg-foreground text-background px-4 py-3.5 text-sm font-medium transition-all hover:opacity-90 shadow-sm"
           >
             {hasTelnyxKey ? 'Update API Key' : 'Connect Telnyx'}
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
           </button>
         </div>
 
-        {/* Local SIM Card */}
-        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#1A1A1E] p-6 transition-all hover:border-emerald-500/30">
+        {/* Twilio Card */}
+        <div className="relative overflow-hidden rounded-[1.5rem] border border-black/5 dark:border-white/5 bg-surface p-6 transition-all duration-300 hover:shadow-[0_8px_30px_rgba(0,0,0,0.04)]">
           <div className="flex items-start justify-between">
-            <div className="h-12 w-12 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold text-lg mb-4">
+            <div className="h-12 w-12 rounded-[0.85rem] bg-[#F22F46] flex items-center justify-center text-white font-bold text-lg mb-4 shadow-sm">
+               Tw
+            </div>
+            <div className="flex flex-col items-end gap-2">
+              {hasTwilioKey ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-background px-3 py-1 text-xs font-semibold uppercase tracking-wider text-foreground border border-black/10 dark:border-white/10 shadow-sm">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  API Connected
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2.5 py-1 text-xs font-medium text-red-500 border border-red-500/20">
+                  <XCircle className="h-3 w-3" />
+                  Not Connected
+                </span>
+              )}
+              {hasTwilioApiCreds && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground border border-border mt-1">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  WebRTC Ready
+                </span>
+              )}
+              {twilioBalance && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/10 px-3 py-1 text-xs font-semibold tracking-wider text-blue-600 border border-blue-500/20 mt-1">
+                  Balance: {twilioBalance.currency} {twilioBalance.balance}
+                </span>
+              )}
+            </div>
+          </div>
+          
+          <h3 className="text-xl font-bold text-foreground mb-2">Twilio Voice</h3>
+          <p className="text-sm text-muted-foreground mb-6">
+            Route calls via Twilio Voice API. Reliable international calling with browser-based WebRTC.
+          </p>
+          
+          <button
+            onClick={() => setIsTwilioModalOpen(true)}
+            className="group flex w-full items-center justify-between rounded-[0.85rem] bg-foreground text-background px-4 py-3.5 text-sm font-medium transition-all hover:opacity-90 shadow-sm"
+          >
+            {hasTwilioKey ? 'Update Twilio Config' : 'Connect Twilio'}
+            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+          </button>
+        </div>
+
+        {/* Local SIM Card */}
+        <div className="relative overflow-hidden rounded-[1.5rem] border border-black/5 dark:border-white/5 bg-surface p-6 transition-all duration-300 hover:shadow-[0_8px_30px_rgba(0,0,0,0.04)]">
+          <div className="flex items-start justify-between">
+            <div className="h-12 w-12 rounded-[0.85rem] bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center text-emerald-500 font-bold text-lg mb-4">
               <Smartphone className="h-6 w-6" />
             </div>
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-500 border border-emerald-500/20">
-              <CheckCircle2 className="h-3 w-3" />
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-background px-3 py-1 text-xs font-semibold uppercase tracking-wider text-foreground border border-black/10 dark:border-white/10 shadow-sm">
+              <CheckCircle2 className="h-3.5 w-3.5" />
               Always Ready
             </span>
           </div>
 
-          <h3 className="text-xl font-bold text-white mb-2">Local SIM</h3>
-          <p className="text-sm text-zinc-400 mb-4">
+          <h3 className="text-xl font-bold text-foreground mb-2">Local SIM</h3>
+          <p className="text-sm text-muted-foreground mb-4">
             Dial via your phone&apos;s native dialer. No WebRTC, no credits, no setup.
           </p>
 
           <div className="rounded-xl bg-blue-500/10 border border-blue-500/20 p-3 mb-4">
-            <p className="text-xs text-blue-400 leading-relaxed">
+            <p className="text-xs text-blue-600 dark:text-blue-400 leading-relaxed">
               <span className="font-semibold">How it works:</span> When you start a Local SIM campaign, clicking &ldquo;Call&rdquo; opens your phone&apos;s native dialer with the lead&apos;s number. After the call, return to this tab to log the disposition.
             </p>
           </div>
@@ -171,47 +316,33 @@ export default function ConnectorsPage() {
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-              <span className="text-xs text-zinc-400">No API keys required</span>
+              <span className="text-xs text-muted-foreground">No API keys required</span>
             </div>
             <div className="flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-              <span className="text-xs text-zinc-400">No Telnyx/Twilio credits</span>
+              <span className="text-xs text-muted-foreground">No Telnyx/Twilio credits</span>
             </div>
             <div className="flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4 text-amber-500 shrink-0" />
-              <span className="text-xs text-zinc-400">Android recommended</span>
+              <span className="text-xs text-muted-foreground">Android recommended</span>
             </div>
           </div>
-        </div>
-
-        {/* Twilio Card (Placeholder) */}
-        <div className="relative overflow-hidden rounded-2xl border border-white/5 bg-[#1A1A1E] opacity-60 p-6 flex flex-col pt-6">
-          <div className="h-12 w-12 rounded-xl bg-[#F22F46] flex items-center justify-center text-white font-bold text-lg mb-4">
-             Tw
-          </div>
-          <h3 className="text-xl font-bold text-white mb-2">Twilio Pillar</h3>
-          <p className="text-sm text-zinc-400 mb-6 flex-1">
-            Coming soon. Route calls and SMS triggers via Twilio Voice API.
-          </p>
-          <button disabled className="w-full rounded-xl bg-white/5 px-4 py-3 text-sm font-medium text-zinc-500 cursor-not-allowed text-left">
-            Coming Soon
-          </button>
         </div>
       </div>
 
       {/* Connection Modal */}
       {isTelnyxModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-[#1A1A1E] shadow-2xl">
+          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                  <Plug className="h-5 w-5 text-emerald-500" />
+                <h3 className="text-xl font-bold tracking-display text-foreground flex items-center gap-2">
+                  <Plug className="h-5 w-5 text-foreground" />
                   Connect Telnyx
                 </h3>
                 <button
                   onClick={() => setIsTelnyxModalOpen(false)}
-                  className="rounded-lg p-1 text-zinc-400 hover:bg-white/10 hover:text-white"
+                  className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:bg-muted/80 hover:text-foreground"
                 >
                   <XCircle className="h-5 w-5" />
                 </button>
@@ -221,12 +352,12 @@ export default function ConnectorsPage() {
                 {/* 1. REST API Form */}
                 <form onSubmit={handleVerifyTelnyx} className="space-y-4">
                   <div>
-                    <h4 className="text-sm font-semibold text-emerald-400 uppercase tracking-wider mb-1">REST API V2</h4>
-                    <p className="text-xs text-zinc-400 mb-4">Required for backend synchronization.</p>
+                    <h4 className="text-sm font-semibold text-foreground tracking-display mb-1">REST API V2</h4>
+                    <p className="text-xs text-muted-foreground tracking-body mb-4">Required for backend synchronization.</p>
                   </div>
                   
                   <div>
-                    <label htmlFor="apiKey" className="block text-sm font-medium text-zinc-300 mb-1">
+                    <label htmlFor="apiKey" className="block text-sm font-medium text-foreground text-opacity-90 mb-1">
                       Telnyx V2 API Key
                     </label>
                     <input
@@ -235,7 +366,7 @@ export default function ConnectorsPage() {
                       placeholder="KEY0..."
                       value={telnyxKey}
                       onChange={(e) => setTelnyxKey(e.target.value)}
-                      className="w-full rounded-xl border border-white/10 bg-[#0F0F11] px-4 py-3 text-sm text-white focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground focus:border-foreground focus:outline-none focus:ring-1 focus:ring-foreground transition-all"
                       required
                     />
                   </div>
@@ -243,11 +374,11 @@ export default function ConnectorsPage() {
                   <div className="flex gap-3 pt-2">
                     <button
                       type="submit"
-                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-6 py-3 text-sm font-medium text-emerald-500 transition-colors hover:bg-emerald-500 hover:text-black disabled:opacity-50"
+                      className="flex w-full items-center justify-center gap-2 rounded-[0.85rem] bg-foreground text-background px-6 py-3 text-sm font-medium transition-all hover:opacity-90 disabled:opacity-50 shadow-sm"
                       disabled={isVerifying || !telnyxKey.trim()}
                     >
                       {isVerifying ? (
-                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent group-hover:border-black" />
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
                       ) : (
                         <CheckCircle2 className="h-4 w-4" />
                       )}
@@ -256,18 +387,18 @@ export default function ConnectorsPage() {
                   </div>
                 </form>
 
-                <hr className="border-white/10" />
+                <hr className="border-border" />
 
                 {/* 2. WebRTC SIP Form */}
                 <form onSubmit={handleSaveSipCreds} className="space-y-4">
                   <div>
-                    <h4 className="text-sm font-semibold text-emerald-400 uppercase tracking-wider mb-1">WebRTC (SIP) Connection</h4>
-                    <p className="text-xs text-zinc-400 mb-4">Required for the browser-based dialer.</p>
+                    <h4 className="text-sm font-semibold text-foreground tracking-display mb-1">WebRTC (SIP) Connection</h4>
+                    <p className="text-xs text-muted-foreground tracking-body mb-4">Required for the browser-based dialer.</p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="col-span-2">
-                      <label htmlFor="sipLogin" className="block text-sm font-medium text-zinc-300 mb-1">
+                      <label htmlFor="sipLogin" className="block text-sm font-medium text-foreground text-opacity-90 mb-1">
                         SIP Username
                       </label>
                       <input
@@ -276,13 +407,13 @@ export default function ConnectorsPage() {
                         placeholder="my_sip_user"
                         value={sipLogin}
                         onChange={(e) => setSipLogin(e.target.value)}
-                        className="w-full rounded-xl border border-white/10 bg-[#0F0F11] px-4 py-3 text-sm text-white focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground focus:border-foreground focus:outline-none focus:ring-1 focus:ring-foreground transition-all"
                         required
                       />
                     </div>
                     
                     <div className="col-span-2">
-                      <label htmlFor="sipPassword" className="block text-sm font-medium text-zinc-300 mb-1">
+                      <label htmlFor="sipPassword" className="block text-sm font-medium text-foreground text-opacity-90 mb-1">
                         SIP Password
                       </label>
                       <input
@@ -291,38 +422,219 @@ export default function ConnectorsPage() {
                         placeholder="••••••••"
                         value={sipPassword}
                         onChange={(e) => setSipPassword(e.target.value)}
-                        className="w-full rounded-xl border border-white/10 bg-[#0F0F11] px-4 py-3 text-sm text-white focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground focus:border-foreground focus:outline-none focus:ring-1 focus:ring-foreground transition-all"
                         required
                       />
                     </div>
 
                     <div className="col-span-2">
-                      <label htmlFor="callerNumber" className="block text-sm font-medium text-zinc-300 mb-1">
-                        Caller ID Number <span className="text-zinc-500 font-normal">(Optional)</span>
+                      <label className="block text-sm font-medium text-foreground text-opacity-90 mb-1">
+                        Caller ID Number <span className="text-muted-foreground text-opacity-70 font-normal">(Optional)</span>
                       </label>
-                      <input
-                        type="text"
-                        id="callerNumber"
-                        placeholder="+1234567890"
-                        value={callerNumber}
-                        onChange={(e) => setCallerNumber(e.target.value)}
-                        className="w-full rounded-xl border border-white/10 bg-[#0F0F11] px-4 py-3 text-sm text-white focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                      />
+                      {isLoadingTelnyxData ? (
+                        <div className="h-12 w-full animate-pulse rounded-xl bg-muted" />
+                      ) : telnyxNumbers.length > 0 ? (
+                        <Select
+                          defaultValue={telnyxNumbers.find(n => n.phone_number === callerNumber)?.phone_number || telnyxNumbers[0].phone_number}
+                          onChange={(val) => setCallerNumber(val)}
+                          data={telnyxNumbers.map(n => ({
+                            id: n.phone_number,
+                            label: n.friendly_name,
+                            value: n.phone_number,
+                            description: n.phone_number
+                          }))}
+                        />
+                      ) : (
+                        <input
+                          type="text"
+                          id="callerNumber"
+                          placeholder="+1234567890 (No numbers found on account)"
+                          value={callerNumber}
+                          onChange={(e) => setCallerNumber(e.target.value)}
+                          className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground focus:border-foreground focus:outline-none focus:ring-1 focus:ring-foreground transition-all"
+                        />
+                      )}
                     </div>
                   </div>
 
                   <div className="flex gap-3 pt-2">
                     <button
                       type="submit"
-                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-6 py-3 text-sm font-medium text-black transition-colors hover:bg-emerald-400 disabled:opacity-50"
+                      className="flex w-full items-center justify-center gap-2 rounded-[0.85rem] bg-foreground px-6 py-3 text-sm font-medium text-background transition-all hover:opacity-90 disabled:opacity-50 shadow-sm"
                       disabled={isSavingSip || !sipLogin.trim() || !sipPassword.trim()}
                     >
                       {isSavingSip ? (
-                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-black border-t-transparent" />
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
                       ) : (
                         <CheckCircle2 className="h-4 w-4" />
                       )}
                       {isSavingSip ? 'Saving...' : 'Save SIP Credentials'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Twilio Connection Modal */}
+      {isTwilioModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold tracking-display text-foreground flex items-center gap-2">
+                  <Plug className="h-5 w-5 text-foreground" />
+                  Connect Twilio
+                </h3>
+                <button
+                  onClick={() => setIsTwilioModalOpen(false)}
+                  className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  <XCircle className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="max-h-[65vh] overflow-y-auto pr-2 space-y-8">
+                {/* 1. Account SID + Auth Token */}
+                <form onSubmit={handleVerifyTwilio} className="space-y-4">
+                  <div>
+                    <h4 className="text-sm font-semibold text-foreground tracking-display mb-1">Account Credentials</h4>
+                    <p className="text-xs text-muted-foreground tracking-body mb-4">From your Twilio Console dashboard.</p>
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="twilioSid" className="block text-sm font-medium text-foreground mb-1">Account SID</label>
+                    <input
+                      type="text"
+                      id="twilioSid"
+                      placeholder="AC..."
+                      value={twilioAccountSid}
+                      onChange={(e) => setTwilioAccountSid(e.target.value)}
+                      className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground focus:border-foreground focus:outline-none focus:ring-1 focus:ring-foreground transition-all"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="twilioToken" className="block text-sm font-medium text-foreground mb-1">Auth Token</label>
+                    <input
+                      type="password"
+                      id="twilioToken"
+                      placeholder="••••••••"
+                      value={twilioAuthToken}
+                      onChange={(e) => setTwilioAuthToken(e.target.value)}
+                      className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground focus:border-foreground focus:outline-none focus:ring-1 focus:ring-foreground transition-all"
+                      required
+                    />
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="submit"
+                      className="flex w-full items-center justify-center gap-2 rounded-[0.85rem] bg-foreground text-background px-6 py-3 text-sm font-medium transition-all hover:opacity-90 disabled:opacity-50 shadow-sm"
+                      disabled={isVerifyingTwilio || !twilioAccountSid.trim() || !twilioAuthToken.trim()}
+                    >
+                      {isVerifyingTwilio ? (
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
+                      ) : (
+                        <CheckCircle2 className="h-4 w-4" />
+                      )}
+                      {isVerifyingTwilio ? 'Verifying...' : (hasTwilioKey ? 'Update Credentials' : 'Verify & Connect')}
+                    </button>
+                  </div>
+                </form>
+
+                <hr className="border-border" />
+
+                {/* 2. API Key + Secret + TwiML App */}
+                <form onSubmit={handleSaveTwilioCreds} className="space-y-4">
+                  <div>
+                    <h4 className="text-sm font-semibold text-foreground tracking-display mb-1">WebRTC Configuration</h4>
+                    <p className="text-xs text-muted-foreground tracking-body mb-4">API Key, Secret, and TwiML App SID for browser dialing.</p>
+                  </div>
+
+                  <div>
+                    <label htmlFor="twilioApiKey" className="block text-sm font-medium text-foreground mb-1">API Key SID</label>
+                    <input
+                      type="text"
+                      id="twilioApiKey"
+                      placeholder="SK..."
+                      value={twilioApiKey}
+                      onChange={(e) => setTwilioApiKey(e.target.value)}
+                      className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground focus:border-foreground focus:outline-none focus:ring-1 focus:ring-foreground transition-all"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="twilioApiSecret" className="block text-sm font-medium text-foreground mb-1">API Secret</label>
+                    <input
+                      type="password"
+                      id="twilioApiSecret"
+                      placeholder="••••••••"
+                      value={twilioApiSecret}
+                      onChange={(e) => setTwilioApiSecret(e.target.value)}
+                      className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground focus:border-foreground focus:outline-none focus:ring-1 focus:ring-foreground transition-all"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="twilioTwiml" className="block text-sm font-medium text-foreground mb-1">TwiML App SID</label>
+                    <input
+                      type="text"
+                      id="twilioTwiml"
+                      placeholder="AP..."
+                      value={twilioTwimlAppSid}
+                      onChange={(e) => setTwilioTwimlAppSid(e.target.value)}
+                      className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground focus:border-foreground focus:outline-none focus:ring-1 focus:ring-foreground transition-all"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-1">
+                      Caller ID Number <span className="text-muted-foreground font-normal">(Optional)</span>
+                    </label>
+                    {isLoadingTwilioData ? (
+                        <div className="h-12 w-full animate-pulse rounded-xl bg-muted" />
+                      ) : twilioNumbers.length > 0 ? (
+                        <Select
+                          defaultValue={twilioNumbers.find(n => n.phone_number === twilioCallerNumber)?.phone_number || twilioNumbers[0].phone_number}
+                          onChange={(val) => setTwilioCallerNumber(val)}
+                          data={twilioNumbers.map(n => ({
+                            id: n.phone_number,
+                            label: n.friendly_name,
+                            value: n.phone_number,
+                            description: n.phone_number
+                          }))}
+                        />
+                      ) : (
+                    <input
+                      type="text"
+                      id="twilioCallerNum"
+                      placeholder="+1234567890 (No numbers found)"
+                      value={twilioCallerNumber}
+                      onChange={(e) => setTwilioCallerNumber(e.target.value)}
+                      className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground focus:border-foreground focus:outline-none focus:ring-1 focus:ring-foreground transition-all"
+                    />
+                    )}
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="submit"
+                      className="flex w-full items-center justify-center gap-2 rounded-[0.85rem] bg-foreground px-6 py-3 text-sm font-medium text-background transition-all hover:opacity-90 disabled:opacity-50 shadow-sm"
+                      disabled={isSavingTwilio || !twilioApiKey.trim() || !twilioApiSecret.trim() || !twilioTwimlAppSid.trim()}
+                    >
+                      {isSavingTwilio ? (
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
+                      ) : (
+                        <CheckCircle2 className="h-4 w-4" />
+                      )}
+                      {isSavingTwilio ? 'Saving...' : 'Save WebRTC Config'}
                     </button>
                   </div>
                 </form>

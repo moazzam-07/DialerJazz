@@ -30,7 +30,7 @@ export default function CallControls({
       {!inCall ? (
         <button
           onClick={(e) => { e.stopPropagation(); onDial(); }}
-          className="w-full h-14 bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-lg rounded-2xl flex items-center justify-center gap-3 shadow-[0_0_30px_rgba(16,185,129,0.3)] transition-all active:scale-95"
+          className="w-full h-14 bg-foreground hover:bg-foreground/90 text-background font-bold text-lg rounded-2xl flex items-center justify-center gap-3 shadow-lg transition-all active:scale-95"
         >
           <Phone className="h-6 w-6" />
           {dialerMode === 'power' ? 'Dial Now' : 'Click to Call'}
@@ -39,13 +39,13 @@ export default function CallControls({
         <div className="w-full flex gap-2">
           <button
             onClick={(e) => { e.stopPropagation(); onHangUp(); }}
-            className="flex-1 h-14 bg-red-500 hover:bg-red-400 text-white font-bold text-lg rounded-2xl shadow-[0_0_30px_rgba(239,68,68,0.4)] flex items-center justify-center gap-2 active:scale-95 transition-all"
+            className="flex-1 h-14 bg-red-500 hover:bg-red-400 text-foreground font-bold text-lg rounded-2xl shadow-[0_0_30px_rgba(239,68,68,0.4)] flex items-center justify-center gap-2 active:scale-95 transition-all"
           >
             <PhoneOff className="h-6 w-6" /> Hang Up
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); onToggleDTMF(); }}
-            className="h-14 w-14 bg-black/40 border border-white/10 text-white rounded-2xl flex items-center justify-center active:scale-95 transition-all"
+            className="h-14 w-14 bg-black/40 border border-border text-foreground rounded-2xl flex items-center justify-center active:scale-95 transition-all"
           >
             <Hash className="h-6 w-6" />
           </button>

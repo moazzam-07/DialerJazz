@@ -109,6 +109,8 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
   // Details State
   const [name, setName] = useState('');
   const [dialerMode, setDialerMode] = useState('preview');
+  const [provider, setProvider] = useState<'telnyx' | 'twilio'>('telnyx');
+  const [callerNumber, setCallerNumber] = useState('');
 
   // CRM Import State
   const [crmLeads, setCrmLeads] = useState<Lead[]>([]);
@@ -135,6 +137,8 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
       setStep('details');
       setName('');
       setDialerMode('preview');
+      setProvider('telnyx');
+      setCallerNumber('');
       setSelectedLeadIds(new Set());
       setCsvFile(null);
       setUploadProgress(0);
@@ -190,7 +194,7 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
     setIsFetchingCrm(true);
     setStep('import_crm');
     try {
-      const { data } = await leadsApi.listAll({ limit: 1000 });
+      const { data } = await leadsApi.listAll({ per_page: 100 });
       setCrmLeads(data);
     } catch (error: any) {
       toast.error(error.message || 'Failed to load CRM leads');
@@ -205,7 +209,7 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
     
     setIsAssigning(true);
     try {
-      const { data } = await campaignsApi.create({ name: name.trim(), dialer_mode: dialerMode });
+      const { data } = await campaignsApi.create({ name: name.trim(), dialer_mode: dialerMode, provider, caller_number: callerNumber || undefined });
       const newCampaignId = Array.isArray(data) ? data[0].id : (data as any).id;
 
       const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/leads/assign`, {
@@ -379,7 +383,7 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
           setUploadProgress(60);
 
           // 1. Create the campaign
-          const { data } = await campaignsApi.create({ name: name.trim(), dialer_mode: dialerMode });
+          const { data } = await campaignsApi.create({ name: name.trim(), dialer_mode: dialerMode, provider, caller_number: callerNumber || undefined });
           const newCampaignId = Array.isArray(data) ? data[0].id : (data as any).id;
 
           setUploadProgress(80);
@@ -438,7 +442,7 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={step === 'success' ? onClose : undefined} />
       
       <motion.div 
-        className={`relative bg-[#1A1A1E] border border-white/10 rounded-2xl p-6 w-full mx-4 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] transition-all duration-300 ${step === 'map_csv' ? 'max-w-5xl' : 'max-w-2xl'}`}
+        className={`relative bg-surface border border-border rounded-2xl p-6 w-full mx-4 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] transition-all duration-300 ${step === 'map_csv' ? 'max-w-5xl' : 'max-w-2xl'}`}
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ duration: 0.2 }}
@@ -447,18 +451,18 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
         <div className="flex items-center justify-between mb-4 shrink-0">
           <div className="flex items-center gap-3">
             {step !== 'details' && step !== 'success' && (
-              <button onClick={handleBack} className="text-zinc-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/5">
+              <button onClick={handleBack} className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-lg hover:bg-muted">
                 <ArrowLeft className="h-5 w-5" />
               </button>
             )}
             <div>
-              <h2 className="text-xl font-bold text-white">{getStepTitle()}</h2>
+              <h2 className="text-xl font-bold text-foreground">{getStepTitle()}</h2>
               {getStepSubtitle() && (
-                <p className="text-sm text-zinc-400 mt-0.5">{getStepSubtitle()}</p>
+                <p className="text-sm text-muted-foreground mt-0.5">{getStepSubtitle()}</p>
               )}
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors">
+          <button onClick={onClose} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted hover:bg-muted/80 transition-colors">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -478,8 +482,8 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
               return (
                 <div key={s} className="flex items-center gap-1 flex-1">
                   <div className={`h-1.5 rounded-full flex-1 transition-all duration-500 ${
-                    isActive ? 'bg-emerald-500' : 'bg-white/10'
-                  } ${isCurrent ? 'bg-emerald-400 shadow-lg shadow-emerald-500/30' : ''}`} />
+                    isActive ? 'bg-foreground' : 'bg-muted hover:bg-muted/80'
+                  } ${isCurrent ? 'bg-foreground/90 shadow-lg shadow-foreground/30' : ''}`} />
                 </div>
               );
             })}
@@ -490,28 +494,75 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
         {step === 'details' && (
           <form onSubmit={handleCreateDetails} className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-zinc-400 mb-2">Campaign Name</label>
+              <label className="block text-sm font-medium text-muted-foreground mb-2">Campaign Name</label>
               <input
                 autoFocus
                 type="text"
                 placeholder="e.g. Q4 Outreach Strategy"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl bg-black/30 border border-white/10 text-white focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500/40 transition-all outline-none"
+                className="w-full px-4 py-3 rounded-xl bg-black/30 border border-border text-foreground focus:ring-2 focus:ring-foreground/40 focus:border-foreground/40 transition-all outline-none"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-zinc-400 mb-2">Dialer Mode</label>
+              <label className="block text-sm font-medium text-muted-foreground mb-2">Dialer Mode</label>
               <DialerModeSelect 
                 value={dialerMode}
                 onChange={setDialerMode}
               />
             </div>
-            <div className="flex justify-end pt-4 border-t border-white/5">
+            <div>
+              <label className="block text-sm font-medium text-muted-foreground mb-2">Telephony Provider</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setProvider('telnyx')}
+                  className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${
+                    provider === 'telnyx'
+                      ? 'border-foreground bg-foreground/5'
+                      : 'border-border bg-black/20 hover:border-foreground/30'
+                  }`}
+                >
+                  <div className="h-9 w-9 rounded-lg bg-foreground flex items-center justify-center text-background font-bold text-xs shrink-0">Tx</div>
+                  <div className="text-left">
+                    <p className="text-sm font-semibold text-foreground">Telnyx</p>
+                    <p className="text-xs text-muted-foreground">WebRTC SIP</p>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setProvider('twilio')}
+                  className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${
+                    provider === 'twilio'
+                      ? 'border-foreground bg-foreground/5'
+                      : 'border-border bg-black/20 hover:border-foreground/30'
+                  }`}
+                >
+                  <div className="h-9 w-9 rounded-lg bg-[#F22F46] flex items-center justify-center text-white font-bold text-xs shrink-0">Tw</div>
+                  <div className="text-left">
+                    <p className="text-sm font-semibold text-foreground">Twilio</p>
+                    <p className="text-xs text-muted-foreground">Voice API</p>
+                  </div>
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
+                Caller ID <span className="text-muted-foreground/50 font-normal">(Optional)</span>
+              </label>
+              <input
+                type="text"
+                placeholder="+1234567890"
+                value={callerNumber}
+                onChange={(e) => setCallerNumber(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl bg-black/30 border border-border text-foreground focus:ring-2 focus:ring-foreground/40 focus:border-foreground/40 transition-all outline-none"
+              />
+            </div>
+            <div className="flex justify-end pt-4 border-t border-border">
               <button 
                 type="submit" 
                 disabled={!name.trim()}
-                className="bg-emerald-500 hover:bg-emerald-400 text-black px-6 py-2.5 rounded-xl font-semibold flex items-center gap-2 disabled:opacity-50 transition-colors"
+                className="bg-foreground hover:bg-foreground/90 text-background px-6 py-2.5 rounded-xl font-semibold flex items-center gap-2 disabled:opacity-50 transition-colors"
               >
                 <span>Continue <ChevronRight className="h-4 w-4 inline" /></span>
               </button>
@@ -522,19 +573,19 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
         {/* Step 2: Choose Source */}
         {step === 'source' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <button onClick={handleFetchCrmLeads} className="flex flex-col items-center text-center p-8 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-emerald-500/50 transition-all group">
-              <div className="h-14 w-14 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+            <button onClick={handleFetchCrmLeads} className="flex flex-col items-center text-center p-8 rounded-2xl border border-border bg-muted hover:bg-muted hover:bg-muted/80 hover:border-foreground/50 transition-all group">
+              <div className="h-14 w-14 rounded-full bg-foreground/10 text-foreground flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                 <Users className="h-7 w-7" />
               </div>
-              <h3 className="text-lg font-semibold text-white mb-2">Import from CRM</h3>
-              <p className="text-sm text-zinc-400">Select leads already mapped in your global directory.</p>
+              <h3 className="text-lg font-semibold text-foreground mb-2">Import from CRM</h3>
+              <p className="text-sm text-muted-foreground">Select leads already mapped in your global directory.</p>
             </button>
-            <button onClick={handleCsvUploadClick} className="flex flex-col items-center text-center p-8 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-emerald-500/50 transition-all group">
+            <button onClick={handleCsvUploadClick} className="flex flex-col items-center text-center p-8 rounded-2xl border border-border bg-muted hover:bg-muted hover:bg-muted/80 hover:border-foreground/50 transition-all group">
               <div className="h-14 w-14 rounded-full bg-blue-500/10 text-blue-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                 <Upload className="h-7 w-7" />
               </div>
-              <h3 className="text-lg font-semibold text-white mb-2">Upload CSV</h3>
-              <p className="text-sm text-zinc-400">Map new leads from a spreadsheet instantly.</p>
+              <h3 className="text-lg font-semibold text-foreground mb-2">Upload CSV</h3>
+              <p className="text-sm text-muted-foreground">Map new leads from a spreadsheet instantly.</p>
             </button>
           </div>
         )}
@@ -543,21 +594,21 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
         {step === 'import_crm' && (
           <div className="flex flex-col h-full overflow-hidden">
             {isFetchingCrm ? (
-              <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-emerald-500" /></div>
+              <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-foreground" /></div>
             ) : (
               <>
                 <div className="relative mb-4 shrink-0">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground text-opacity-70" />
                   <input
                     placeholder="Search by name or company..."
                     value={crmSearch}
                     onChange={(e) => setCrmSearch(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 border border-white/10 rounded-xl bg-black/20 text-sm text-white focus:outline-none"
+                    className="w-full pl-9 pr-4 py-2 border border-border rounded-xl bg-black/20 text-sm text-foreground focus:outline-none"
                   />
                 </div>
-                <div className="overflow-y-auto flex-1 min-h-[300px] border border-white/5 rounded-xl bg-black/20">
-                  <table className="w-full text-left text-sm text-zinc-300">
-                    <thead className="sticky top-0 bg-[#1A1A1E] text-xs uppercase text-zinc-500 border-b border-white/5 shadow">
+                <div className="overflow-y-auto flex-1 min-h-[300px] border border-border rounded-xl bg-black/20">
+                  <table className="w-full text-left text-sm text-foreground text-opacity-90">
+                    <thead className="sticky top-0 bg-surface text-xs uppercase text-muted-foreground text-opacity-70 border-b border-border shadow">
                       <tr>
                         <th className="px-4 py-3 w-10">
                           <input 
@@ -570,7 +621,7 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
                               }
                             }}
                             checked={selectedLeadIds.size > 0 && selectedLeadIds.size === crmLeads.length}
-                            className="rounded border-white/20 bg-black/50 text-emerald-500 focus:ring-emerald-500"
+                            className="rounded border-white/20 bg-black/50 text-foreground focus:ring-foreground"
                           />
                         </th>
                         <th className="px-4 py-3">Name</th>
@@ -582,7 +633,7 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
                       {crmLeads
                         .filter(l => (l.first_name || l.company)?.toLowerCase().includes(crmSearch.toLowerCase()))
                         .map(lead => (
-                        <tr key={lead.id} className="hover:bg-white/5 cursor-pointer" onClick={() => {
+                        <tr key={lead.id} className="hover:bg-muted cursor-pointer" onClick={() => {
                           const newSet = new Set(selectedLeadIds);
                           if (newSet.has(lead.id)) newSet.delete(lead.id);
                           else newSet.add(lead.id);
@@ -593,23 +644,23 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
                               type="checkbox" 
                               checked={selectedLeadIds.has(lead.id)}
                               readOnly
-                              className="rounded border-white/20 bg-black/50 text-emerald-500 focus:ring-emerald-500"
+                              className="rounded border-white/20 bg-black/50 text-foreground focus:ring-foreground"
                             />
                           </td>
-                          <td className="px-4 py-3 font-medium text-white">{lead.first_name} {lead.last_name}</td>
+                          <td className="px-4 py-3 font-medium text-foreground">{lead.first_name} {lead.last_name}</td>
                           <td className="px-4 py-3">{lead.phone}</td>
-                          <td className="px-4 py-3 text-emerald-400">{lead.company}</td>
+                          <td className="px-4 py-3 text-muted-foreground">{lead.company}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-                <div className="flex justify-between items-center mt-6 shrink-0 pt-4 border-t border-white/5">
-                  <span className="text-sm text-zinc-400">{selectedLeadIds.size} leads selected</span>
+                <div className="flex justify-between items-center mt-6 shrink-0 pt-4 border-t border-border">
+                  <span className="text-sm text-muted-foreground">{selectedLeadIds.size} leads selected</span>
                   <button 
                     onClick={handleAssignCrmLeads}
                     disabled={selectedLeadIds.size === 0 || isAssigning}
-                    className="bg-emerald-500 hover:bg-emerald-400 text-black px-6 py-2.5 rounded-xl font-semibold flex items-center gap-2 disabled:opacity-50 transition-colors"
+                    className="bg-foreground hover:bg-foreground/90 text-background px-6 py-2.5 rounded-xl font-semibold flex items-center gap-2 disabled:opacity-50 transition-colors"
                   >
                     {isAssigning ? <Loader2 className="h-4 w-4 animate-spin" /> : <span>Import Selected</span>}
                   </button>
@@ -623,7 +674,7 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
         {step === 'upload_csv' && (
           <div className="space-y-6">
             <div 
-              className="border-2 border-dashed border-zinc-700 hover:border-emerald-500/50 rounded-2xl p-10 text-center transition-colors bg-white/5 cursor-pointer"
+              className="border-2 border-dashed border-zinc-700 hover:border-foreground/50 rounded-2xl p-10 text-center transition-colors bg-muted cursor-pointer"
               onClick={() => fileInputRef.current?.click()}
             >
               <input 
@@ -633,11 +684,11 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
                 className="hidden" 
                 onChange={handleFileChange}
               />
-              <Upload className="h-10 w-10 text-zinc-500 mx-auto mb-4" />
-              <p className="text-white font-medium mb-1">
+              <Upload className="h-10 w-10 text-muted-foreground text-opacity-70 mx-auto mb-4" />
+              <p className="text-foreground font-medium mb-1">
                 {csvFile ? csvFile.name : 'Click to upload your CSV'}
               </p>
-              <p className="text-sm text-zinc-500">
+              <p className="text-sm text-muted-foreground text-opacity-70">
                 Supports exports from Apollo, ZoomInfo, Uplead, and any standard CSV.
               </p>
             </div>
@@ -646,21 +697,21 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-black/30 p-4 rounded-xl border border-white/5 space-y-4"
+                className="bg-black/30 p-4 rounded-xl border border-border space-y-4"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <FileSpreadsheet className="h-5 w-5 text-emerald-500" />
-                    <span className="text-sm text-zinc-300 font-medium">{csvFile.name}</span>
+                    <FileSpreadsheet className="h-5 w-5 text-foreground" />
+                    <span className="text-sm text-foreground text-opacity-90 font-medium">{csvFile.name}</span>
                   </div>
-                  <span className="text-xs text-zinc-500">{(csvFile.size / 1024).toFixed(1)} KB</span>
+                  <span className="text-xs text-muted-foreground text-opacity-70">{(csvFile.size / 1024).toFixed(1)} KB</span>
                 </div>
                 
                 <div className="flex justify-end">
                   <button 
                     onClick={handleParseHeaders}
                     disabled={isParsing}
-                    className="bg-emerald-500 hover:bg-emerald-400 text-black px-6 py-2.5 rounded-xl font-semibold flex items-center gap-2 disabled:opacity-50 transition-colors w-full justify-center"
+                    className="bg-foreground hover:bg-foreground/90 text-background px-6 py-2.5 rounded-xl font-semibold flex items-center gap-2 disabled:opacity-50 transition-colors w-full justify-center"
                   >
                     {isParsing ? (
                       <><Loader2 className="h-4 w-4 animate-spin" /> Analyzing columns...</>
@@ -687,15 +738,15 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
             <motion.div 
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="flex items-center justify-between bg-black/30 rounded-xl px-4 py-3 border border-white/5"
+              className="flex items-center justify-between bg-black/30 rounded-xl px-4 py-3 border border-border"
             >
               <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-emerald-400 flex-shrink-0" />
-                <span className="text-sm text-zinc-300">
-                  <span className="text-emerald-400 font-semibold">{mappedCount}</span> of {SYSTEM_FIELDS.length} fields mapped
+                <Sparkles className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <span className="text-sm text-foreground text-opacity-90">
+                  <span className="text-muted-foreground font-semibold">{mappedCount}</span> of {SYSTEM_FIELDS.length} fields mapped
                 </span>
               </div>
-              <span className="text-xs text-zinc-500">{csvHeaders.length} CSV columns detected</span>
+              <span className="text-xs text-muted-foreground text-opacity-70">{csvHeaders.length} CSV columns detected</span>
             </motion.div>
 
             {/* Phone Required Warning */}
@@ -721,13 +772,13 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
                       const confidence = mappingConfidence[field.key];
                       const FieldIcon = field.icon;
                       const confidenceColor = {
-                        high: 'bg-emerald-500/15 border-emerald-500/30',
+                        high: 'bg-foreground/15 border-foreground/30',
                         medium: 'bg-amber-500/10 border-amber-500/20', 
                         low: 'bg-orange-500/10 border-orange-500/20',
-                        none: 'bg-white/[0.03] border-white/5',
+                        none: 'bg-white/[0.03] border-border',
                       }[confidence];
                       const confidenceDot = {
-                        high: 'bg-emerald-400',
+                        high: 'bg-foreground/90',
                         medium: 'bg-amber-400',
                         low: 'bg-orange-400',
                         none: 'bg-zinc-600',
@@ -743,9 +794,9 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
                         >
                           {/* System field label */}
                           <div className="flex items-center gap-2.5 min-w-[130px]">
-                            <FieldIcon className="h-4 w-4 text-zinc-400 flex-shrink-0" />
+                            <FieldIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                             <div className="flex items-center gap-1.5">
-                              <span className="text-sm font-medium text-white">{field.label}</span>
+                              <span className="text-sm font-medium text-foreground">{field.label}</span>
                               {field.required && (
                                 <span className="text-[10px] font-bold text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded">REQ</span>
                               )}
@@ -753,7 +804,7 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
                           </div>
 
                           {/* Arrow */}
-                          <ArrowRight className="h-3.5 w-3.5 text-zinc-500 flex-shrink-0" />
+                          <ArrowRight className="h-3.5 w-3.5 text-muted-foreground text-opacity-70 flex-shrink-0" />
 
                           {/* AnimatedSelect Dropdown */}
                           <div className="flex-1 min-w-0">
@@ -770,7 +821,7 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
                           {/* Confidence dot */}
                           <div className="flex items-center gap-1.5 flex-shrink-0">
                             <div className={`h-2 w-2 rounded-full ${confidenceDot}`} />
-                            <span className="text-[10px] uppercase tracking-wider text-zinc-500">{confidence}</span>
+                            <span className="text-[10px] uppercase tracking-wider text-muted-foreground text-opacity-70">{confidence}</span>
                           </div>
                         </motion.div>
                       );
@@ -785,21 +836,21 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.2 }}
-                  className="lg:w-[380px] flex-shrink-0 bg-black/30 rounded-xl border border-white/5 overflow-hidden flex flex-col"
+                  className="lg:w-[380px] flex-shrink-0 bg-black/30 rounded-xl border border-border overflow-hidden flex flex-col"
                 >
-                  <div className="px-4 py-2.5 border-b border-white/5 flex items-center gap-2 shrink-0">
-                    <FileSpreadsheet className="h-3.5 w-3.5 text-zinc-400" />
-                    <span className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Data Preview</span>
-                    <span className="text-xs text-zinc-600">• First 3 rows</span>
+                  <div className="px-4 py-2.5 border-b border-border flex items-center gap-2 shrink-0">
+                    <FileSpreadsheet className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Data Preview</span>
+                    <span className="text-xs text-muted-foreground text-opacity-50">• First 3 rows</span>
                   </div>
                   <div className="overflow-auto flex-1" style={{ scrollbarWidth: 'thin', scrollbarColor: '#3f3f46 transparent' }}>
                     <table className="w-full text-xs">
                       <thead className="sticky top-0 bg-[#111113]">
-                        <tr className="border-b border-white/5">
+                        <tr className="border-b border-border">
                           {SYSTEM_FIELDS.filter(f => columnMap[f.key] && columnMap[f.key] !== SKIP_VALUE).map(f => {
                             const Icon = f.icon;
                             return (
-                              <th key={f.key} className="px-3 py-2 text-left text-zinc-400 font-medium whitespace-nowrap">
+                              <th key={f.key} className="px-3 py-2 text-left text-muted-foreground font-medium whitespace-nowrap">
                                 <span className="inline-flex items-center gap-1"><Icon className="h-3 w-3" /> {f.label}</span>
                               </th>
                             );
@@ -808,9 +859,9 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
                       </thead>
                       <tbody>
                         {csvPreviewRows.map((row, rowIdx) => (
-                          <tr key={rowIdx} className="border-b border-white/5 last:border-0 hover:bg-white/[0.02]">
+                          <tr key={rowIdx} className="border-b border-border last:border-0 hover:bg-white/[0.02]">
                             {SYSTEM_FIELDS.filter(f => columnMap[f.key] && columnMap[f.key] !== SKIP_VALUE).map(f => (
-                              <td key={f.key} className="px-3 py-2 text-zinc-300 whitespace-nowrap max-w-[140px] truncate">
+                              <td key={f.key} className="px-3 py-2 text-foreground text-opacity-90 whitespace-nowrap max-w-[140px] truncate">
                                 {String(row[columnMap[f.key]] || '—')}
                               </td>
                             ))}
@@ -824,17 +875,17 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
             </div>
 
             {/* Footer: Change file & Import */}
-            <div className="flex items-center justify-between pt-3 border-t border-white/5 shrink-0">
+            <div className="flex items-center justify-between pt-3 border-t border-border shrink-0">
               <button
                 onClick={() => setStep('upload_csv')}
-                className="text-sm text-zinc-400 hover:text-white transition-colors flex items-center gap-1 cursor-pointer"
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 cursor-pointer"
               >
                 <ArrowLeft className="h-4 w-4" /> Change file
               </button>
               <button 
                 onClick={handleConfirmAndImport}
                 disabled={!isPhoneMapped || isUploading}
-                className="bg-emerald-500 hover:bg-emerald-400 text-black px-6 py-2.5 rounded-xl font-semibold flex items-center gap-2 disabled:opacity-50 transition-colors cursor-pointer"
+                className="bg-foreground hover:bg-foreground/90 text-background px-6 py-2.5 rounded-xl font-semibold flex items-center gap-2 disabled:opacity-50 transition-colors cursor-pointer"
               >
                 {isUploading ? (
                   <>
@@ -852,9 +903,9 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
 
             {/* Progress bar during import */}
             {isUploading && (
-              <div className="w-full bg-zinc-800 rounded-full h-1.5 overflow-hidden">
+              <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
                 <motion.div 
-                  className="bg-emerald-500 h-full"
+                  className="bg-foreground h-full"
                   initial={{ width: '0%' }}
                   animate={{ width: `${uploadProgress}%` }}
                   transition={{ duration: 0.3 }}
@@ -871,18 +922,18 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ type: 'spring', stiffness: 200, damping: 15 }}
-              className="inline-flex h-20 w-20 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-500 mb-6 relative"
+              className="inline-flex h-20 w-20 items-center justify-center rounded-full bg-foreground/20 text-foreground mb-6 relative"
             >
-              <div className="absolute inset-0 rounded-full bg-emerald-500/20 animate-ping" />
+              <div className="absolute inset-0 rounded-full bg-foreground/20 animate-ping" />
               <CheckCircle2 className="h-10 w-10" />
             </motion.div>
-            <h2 className="text-2xl font-bold text-white mb-2">Campaign Ready!</h2>
-            <p className="text-zinc-400 mb-8 max-w-sm mx-auto">
+            <h2 className="text-2xl font-bold text-foreground mb-2">Campaign Ready!</h2>
+            <p className="text-muted-foreground mb-8 max-w-sm mx-auto">
               Your leads have been successfully mapped and the campaign is queued for dialing.
             </p>
             <button 
               onClick={onClose}
-              className="bg-white/10 hover:bg-white/20 text-white px-8 py-3 rounded-xl font-semibold transition-colors"
+              className="bg-muted hover:bg-muted/80 hover:bg-white/20 text-foreground px-8 py-3 rounded-xl font-semibold transition-colors"
             >
               Go to Dashboard
             </button>
