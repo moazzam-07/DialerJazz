@@ -19,7 +19,8 @@ import {
   ChevronDown,
   Tag,
   Copy,
-  Info
+  Info,
+  Smartphone
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { callsApi, leadsApi, campaignsApi } from '@/lib/api';
@@ -335,7 +336,11 @@ export default function CampaignDialerPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {voice.connectionStatus === 'registered' ? (
+          {campaign?.provider === 'local' ? (
+            <span className="px-3 py-1 bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 rounded-full text-xs font-bold leading-none flex items-center gap-1.5 shadow-sm">
+              <Smartphone className="h-3 w-3" /> Local SIM
+            </span>
+          ) : voice.connectionStatus === 'registered' ? (
              <span className="px-3 py-1 bg-background text-foreground border border-black/10 dark:border-white/10 rounded-full text-xs font-bold leading-none flex items-center gap-1.5 shadow-sm"><div className="h-1.5 w-1.5 rounded-full bg-foreground animate-pulse"/> SIP Registered</span>
           ) : (
              <span className="px-3 py-1 bg-muted text-muted-foreground border border-border rounded-full text-xs font-bold leading-none flex items-center gap-1.5"><Loader2 className="h-3 w-3 animate-spin"/> Connecting</span>
