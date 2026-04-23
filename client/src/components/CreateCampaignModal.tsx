@@ -5,6 +5,7 @@ import Papa from 'papaparse';
 import { motion, AnimatePresence } from 'framer-motion';
 import { campaignsApi, leadsApi, type Lead } from '@/lib/api';
 import { DialerModeSelect } from '@/components/ui/dialer-mode-select';
+import { ProviderSelect } from '@/components/ui/provider-select';
 import { AnimatedSelect, type AnimatedSelectOption } from '@/components/AnimatedSelect';
 
 type Step = 'details' | 'source' | 'import_crm' | 'upload_csv' | 'map_csv' | 'success';
@@ -109,7 +110,7 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
   // Details State
   const [name, setName] = useState('');
   const [dialerMode, setDialerMode] = useState('preview');
-  const [provider, setProvider] = useState<'telnyx' | 'twilio'>('telnyx');
+  const [provider, setProvider] = useState<'telnyx' | 'twilio' | 'local'>('telnyx');
   const [callerNumber, setCallerNumber] = useState('');
 
   // CRM Import State
@@ -513,51 +514,25 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
             </div>
             <div>
               <label className="block text-sm font-medium text-muted-foreground mb-2">Telephony Provider</label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setProvider('telnyx')}
-                  className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${
-                    provider === 'telnyx'
-                      ? 'border-foreground bg-foreground/5'
-                      : 'border-border bg-black/20 hover:border-foreground/30'
-                  }`}
-                >
-                  <div className="h-9 w-9 rounded-lg bg-foreground flex items-center justify-center text-background font-bold text-xs shrink-0">Tx</div>
-                  <div className="text-left">
-                    <p className="text-sm font-semibold text-foreground">Telnyx</p>
-                    <p className="text-xs text-muted-foreground">WebRTC SIP</p>
-                  </div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setProvider('twilio')}
-                  className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${
-                    provider === 'twilio'
-                      ? 'border-foreground bg-foreground/5'
-                      : 'border-border bg-black/20 hover:border-foreground/30'
-                  }`}
-                >
-                  <div className="h-9 w-9 rounded-lg bg-[#F22F46] flex items-center justify-center text-white font-bold text-xs shrink-0">Tw</div>
-                  <div className="text-left">
-                    <p className="text-sm font-semibold text-foreground">Twilio</p>
-                    <p className="text-xs text-muted-foreground">Voice API</p>
-                  </div>
-                </button>
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-2">
-                Caller ID <span className="text-muted-foreground/50 font-normal">(Optional)</span>
-              </label>
-              <input
-                type="text"
-                placeholder="+1234567890"
-                value={callerNumber}
-                onChange={(e) => setCallerNumber(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl bg-black/30 border border-border text-foreground focus:ring-2 focus:ring-foreground/40 focus:border-foreground/40 transition-all outline-none"
+              <ProviderSelect 
+                value={provider}
+                onChange={(val) => setProvider(val as 'telnyx' | 'twilio' | 'local')}
               />
             </div>
+            {provider !== 'local' && (
+              <div>
+                <label className="block text-sm font-medium text-muted-foreground mb-2">
+                  Caller ID <span className="text-muted-foreground/50 font-normal">(Optional)</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="+1234567890"
+                  value={callerNumber}
+                  onChange={(e) => setCallerNumber(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl bg-black/30 border border-border text-foreground focus:ring-2 focus:ring-foreground/40 focus:border-foreground/40 transition-all outline-none"
+                />
+              </div>
+            )}
             <div className="flex justify-end pt-4 border-t border-border">
               <button 
                 type="submit" 
