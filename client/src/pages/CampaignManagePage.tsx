@@ -76,17 +76,18 @@ export default function CampaignManagePage() {
   const dialerModeData = [
     {
       id: '1',
-      label: 'Click-to-Call',
+      label: 'Preview Dialer (Manual)',
       value: 'click',
-      description: 'Manual control. Click to dial leads.',
+      description: 'Review lead details before initiating the call.',
       icon: <MousePointerClick className="w-5 h-5" />
     },
     {
       id: '2',
-      label: 'Power Dialer',
+      label: 'Power Dialer (Auto-next)',
       value: 'power',
-      description: 'Automated dialing. Speeds up workflow.',
-      icon: <Zap className="w-5 h-5" />
+      description: 'Automatically dial the next lead immediately after hanging up.',
+      icon: <Zap className="w-5 h-5" />,
+      disabled: true
     }
   ];
 

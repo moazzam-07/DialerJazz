@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react"
 import { AnimatePresence, motion, MotionConfig } from "framer-motion"
-import { ChevronDownIcon, X } from "lucide-react"
+import { ChevronDownIcon, X, Lock } from "lucide-react"
 
 export type TSelectData = {
   id: string
@@ -171,8 +171,12 @@ const SelectItem = ({
 }: SelectItemProps) => {
   return (
     <motion.div
-      className={`group flex cursor-pointer items-center justify-between gap-3 px-4 py-3 hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${
-        noDescription && "!py-3"
+      className={`group flex items-center justify-between gap-3 px-4 py-3 transition-colors ${
+        noDescription ? "!py-3" : ""
+      } ${
+        item?.disabled
+          ? "opacity-40 cursor-not-allowed"
+          : "cursor-pointer hover:bg-black/5 dark:hover:bg-white/5"
       }`}
       variants={animation}
       initial="hidden"
@@ -180,7 +184,7 @@ const SelectItem = ({
       exit="exit"
       key={"product-" + item?.id + "-order-" + order}
       custom={typeof order === 'string' ? 0 : order}
-      onClick={() => onChange?.(order as string)}
+      onClick={() => { if (!item?.disabled) onChange?.(order as string) }}
     >
       <div className="flex items-center gap-3">
         {item?.icon && (
@@ -193,12 +197,19 @@ const SelectItem = ({
           </motion.div>
         )}
         <motion.div layout className="flex flex-col">
-          <motion.strong
-            layoutId={`${prefix.replace(/\s+/g, '-')}-label-${item?.id}`}
-            className="text-sm font-semibold text-foreground whitespace-nowrap"
-          >
-            {item?.label || 'Select...'}
-          </motion.strong>
+          <div className="flex items-center gap-2">
+            <motion.strong
+              layoutId={`${prefix.replace(/\s+/g, '-')}-label-${item?.id}`}
+              className="text-sm font-semibold text-foreground whitespace-nowrap"
+            >
+              {item?.label || 'Select...'}
+            </motion.strong>
+            {item?.disabled && !noDescription && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-muted/80 px-2 py-0.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                <Lock className="h-3 w-3" /> Coming Soon
+              </span>
+            )}
+          </div>
           {(!noDescription && item?.description) ? (
             <span className="text-xs text-muted-foreground mt-0.5 line-clamp-2 pr-4">
               {item?.description}
