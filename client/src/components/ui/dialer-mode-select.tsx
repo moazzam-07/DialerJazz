@@ -17,14 +17,16 @@ const MODES = [
   {
     id: "power",
     icon: <Zap className="h-4 w-4" />,
-    title: "Power Dialer (Auto-next)",
+    title: "Power Dialer (Auto-next) - Coming Soon",
     description: "Automatically dial the next lead immediately after hanging up.",
+    disabled: true,
   },
   {
     id: "progressive",
     icon: <FastForward className="h-4 w-4" />,
-    title: "Progressive Dialer",
+    title: "Progressive Dialer - Coming Soon",
     description: "Dial next lead while you wrap up notes on the previous one.",
+    disabled: true,
   },
 ]
 
@@ -104,13 +106,14 @@ export function DialerModeSelect({ value, onChange }: DialerModeSelectProps) {
                   <div
                     key={mode.id}
                     onClick={() => {
+                      if (mode.disabled) return;
                       onChange(mode.id);
                       setIsOpen(false);
                     }}
                     className={cn(
-                      "flex items-start gap-4 rounded-xl p-3 cursor-pointer",
+                      "flex items-start gap-4 rounded-xl p-3",
                       "transition-all duration-300 ease-out",
-                      isSelected ? "bg-primary/5" : "hover:bg-muted/50",
+                      isSelected ? "bg-primary/5" : (mode.disabled ? "opacity-50 cursor-not-allowed" : "hover:bg-muted/50 cursor-pointer"),
                       isOpen ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
                     )}
                     style={{
