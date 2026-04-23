@@ -149,6 +149,16 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
     }
   }, [isOpen]);
 
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [isOpen]);
+
   // ALL hooks MUST be called before any early return (Rules of Hooks)
   const csvHeaderOptions: AnimatedSelectOption[] = useMemo(() => {
     return [
@@ -443,7 +453,8 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={step === 'success' ? onClose : undefined} />
       
       <motion.div 
-        className={`relative bg-surface border border-border rounded-2xl p-6 w-full mx-4 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] transition-all duration-300 ${step === 'map_csv' ? 'max-w-5xl' : 'max-w-2xl'}`}
+        className={`relative bg-surface border border-border rounded-2xl p-6 w-full mx-4 shadow-2xl overflow-y-auto flex flex-col max-h-[90vh] transition-all duration-300 ${step === 'map_csv' ? 'max-w-5xl' : 'max-w-2xl'}`}
+        style={{ overscrollBehavior: 'contain' }}
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ duration: 0.2 }}
