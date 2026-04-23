@@ -145,8 +145,11 @@ export default function CampaignDialerPage() {
     if (!currentLead) return;
 
     if (campaign?.provider === 'local') {
-      setIsLocalCallActive(true);
+      // Delay state change so the DOM isn't destroyed before the tel: URI processes on mobile
       localCall(currentLead.phone);
+      setTimeout(() => {
+        setIsLocalCallActive(true);
+      }, 300);
       return;
     }
 
@@ -308,8 +311,8 @@ export default function CampaignDialerPage() {
           {currentLead ? (
             <motion.div 
               key={currentLead.id}
-              drag={!isInCall && !showDisposition && !isDetailsExpanded ? 'x' : false} // Disable swipe if details expanded or on call
-              dragConstraints={{ left: 0, right: 0 }}
+              drag={!isInCall && !showDisposition && !isDetailsExpanded} // Disable swipe if details expanded or on call
+              dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
               onDragEnd={handleDragEnd}
               animate={controls}
               className="absolute w-full h-full bg-white md:border md:border-gray-200 md:shadow-xl rounded-t-[2.5rem] md:rounded-3xl flex flex-col cursor-grab active:cursor-grabbing transform-gpu overflow-hidden"
@@ -377,7 +380,7 @@ export default function CampaignDialerPage() {
                 <div className="px-6 flex flex-col gap-3 mb-6">
                   {/* Phone Pill */}
                   <button 
-                    onClick={() => { navigator.clipboard.writeText(currentLead.phone); toast.success('Phone copied'); }}
+                    onClick={(e) => { e.stopPropagation(); handleDial(); }}
                     className="w-full flex items-center justify-center gap-3 bg-gray-100 hover:bg-gray-200 active:scale-95 py-4 rounded-2xl transition-all"
                   >
                     <Phone className="w-5 h-5 text-gray-600" />
