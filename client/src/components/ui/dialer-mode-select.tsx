@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react"
-import { MousePointerClick, Zap, FastForward, ChevronUp } from "lucide-react"
+import { MousePointerClick, Zap, FastForward, ChevronUp, Lock, CheckCircle2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface DialerModeSelectProps {
@@ -17,14 +17,14 @@ const MODES = [
   {
     id: "power",
     icon: <Zap className="h-4 w-4" />,
-    title: "Power Dialer (Auto-next) - Coming Soon",
+    title: "Power Dialer (Auto-next)",
     description: "Automatically dial the next lead immediately after hanging up.",
     disabled: true,
   },
   {
     id: "progressive",
     icon: <FastForward className="h-4 w-4" />,
-    title: "Progressive Dialer - Coming Soon",
+    title: "Progressive Dialer",
     description: "Dial next lead while you wrap up notes on the previous one.",
     disabled: true,
   },
@@ -111,9 +111,11 @@ export function DialerModeSelect({ value, onChange }: DialerModeSelectProps) {
                       setIsOpen(false);
                     }}
                     className={cn(
-                      "flex items-start gap-4 rounded-xl p-3",
+                      "flex items-start gap-4 rounded-xl p-3 border",
                       "transition-all duration-300 ease-out",
-                      isSelected ? "bg-primary/5" : (mode.disabled ? "opacity-50 cursor-not-allowed" : "hover:bg-muted/50 cursor-pointer"),
+                      isSelected 
+                        ? "bg-primary/5 border-primary/50 shadow-sm" 
+                        : (mode.disabled ? "opacity-40 border-transparent cursor-not-allowed" : "border-transparent hover:bg-muted/50 cursor-pointer"),
                       isOpen ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
                     )}
                     style={{
@@ -127,14 +129,26 @@ export function DialerModeSelect({ value, onChange }: DialerModeSelectProps) {
                       {mode.icon}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h4 className={cn(
-                        "text-sm font-semibold",
-                        isSelected ? "text-primary" : "text-foreground"
-                      )}>
-                        {mode.title}
-                      </h4>
-                      <p className="text-sm text-muted-foreground text-opacity-70 truncate">{mode.description}</p>
+                      <div className="flex items-center gap-2">
+                        <h4 className={cn(
+                          "text-sm font-semibold",
+                          isSelected ? "text-primary" : "text-foreground"
+                        )}>
+                          {mode.title}
+                        </h4>
+                        {mode.disabled && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-muted/80 px-2 py-0.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                            <Lock className="h-3 w-3" /> Coming Soon
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground text-opacity-70 truncate mt-0.5">{mode.description}</p>
                     </div>
+                    {isSelected && (
+                      <div className="flex h-10 items-center justify-center pr-2 shrink-0">
+                        <CheckCircle2 className="h-5 w-5 text-primary" />
+                      </div>
+                    )}
                   </div>
                 )
               })}
