@@ -227,6 +227,12 @@ export const leadsApi = {
       method: 'PATCH',
       body: JSON.stringify({ status }),
     }),
+
+  assignToCampaign: (campaignId: string, leadIds: string[]) =>
+    apiFetch<{ message: string; count: number }>('/leads/assign', {
+      method: 'POST',
+      body: JSON.stringify({ campaign_id: campaignId, lead_ids: leadIds }),
+    }),
 };
 
 // ============ Calls API ============

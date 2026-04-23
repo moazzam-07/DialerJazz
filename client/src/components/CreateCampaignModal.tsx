@@ -223,22 +223,12 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
       const { data } = await campaignsApi.create({ name: name.trim(), dialer_mode: dialerMode, provider, caller_number: callerNumber || undefined });
       const newCampaignId = Array.isArray(data) ? data[0].id : (data as any).id;
 
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/leads/assign`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-        },
-        body: JSON.stringify({
-          campaign_id: newCampaignId,
-          lead_ids: Array.from(selectedLeadIds)
-        })
-      });
+      const { data: resData } = await leadsApi.assignToCampaign(
+        newCampaignId,
+        Array.from(selectedLeadIds)
+      );
       
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error?.message || 'Failed to assign leads');
-      
-      toast.success(`Assigned ${json.count} leads to campaign`);
+      toast.success(`Assigned ${resData.count} leads to campaign`);
       setStep('success');
       onCreated();
     } catch (err: any) {
