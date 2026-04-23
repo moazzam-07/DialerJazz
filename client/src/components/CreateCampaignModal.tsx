@@ -743,7 +743,7 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
               {/* LEFT PANEL: Mapping Grid */}
               <div className="flex-1 flex flex-col min-h-0 min-w-0">
                 <div className="overflow-y-auto flex-1 pr-1 space-y-2 max-h-[400px] lg:max-h-none" style={{ scrollbarWidth: 'thin', scrollbarColor: '#3f3f46 transparent' }}>
-                  <AnimatePresence mode="wait">
+                  <AnimatePresence>
                     {SYSTEM_FIELDS.map((field, index) => {
                       const confidence = mappingConfidence[field.key];
                       const FieldIcon = field.icon;

@@ -193,7 +193,11 @@ router.get('/telnyx/phone-numbers', async (req: AuthenticatedRequest, res: Respo
       }
     });
 
-    if (!response.ok) throw new Error('Failed to fetch Telnyx phone numbers');
+    if (!response.ok) {
+      console.error('Telnyx API error:', response.statusText);
+      return res.json({ data: [], error: 'invalid_credentials' });
+    }
+    
     const telnyxData = await response.json();
     
     // Normalize response
@@ -205,7 +209,8 @@ router.get('/telnyx/phone-numbers', async (req: AuthenticatedRequest, res: Respo
 
     res.json({ data: numbers });
   } catch (error) {
-    next(error);
+    console.error('Telnyx phone fetch error:', error);
+    res.json({ data: [], error: 'fetch_failed' });
   }
 });
 
@@ -255,7 +260,11 @@ router.get('/twilio/phone-numbers', async (req: AuthenticatedRequest, res: Respo
       }
     });
 
-    if (!response.ok) throw new Error('Failed to fetch Twilio phone numbers');
+    if (!response.ok) {
+      console.error('Twilio API error:', response.statusText);
+      return res.json({ data: [], error: 'invalid_credentials' });
+    }
+    
     const twilioData = await response.json();
     
     // Normalize response
@@ -267,7 +276,8 @@ router.get('/twilio/phone-numbers', async (req: AuthenticatedRequest, res: Respo
 
     res.json({ data: numbers });
   } catch (error) {
-    next(error);
+    console.error('Twilio phone fetch error:', error);
+    res.json({ data: [], error: 'fetch_failed' });
   }
 });
 

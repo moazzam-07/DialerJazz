@@ -97,7 +97,13 @@ async function apiFetch<T = unknown>(
     return {} as any;
   }
 
-  return response.json();
+  const json = await response.json();
+  
+  // Enforce the { data: T } contract if the backend just returned raw JSON
+  if (json && typeof json === 'object' && 'data' in json) {
+    return json;
+  }
+  return { data: json };
 }
 
 // ============ Campaigns API ============
