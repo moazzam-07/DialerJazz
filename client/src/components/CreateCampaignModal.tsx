@@ -748,10 +748,10 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
                       const confidence = mappingConfidence[field.key];
                       const FieldIcon = field.icon;
                       const confidenceColor = {
-                        high: 'bg-foreground/15 border-foreground/30',
+                        high: 'bg-primary/5 border-primary/20',
                         medium: 'bg-amber-500/10 border-amber-500/20', 
                         low: 'bg-orange-500/10 border-orange-500/20',
-                        none: 'bg-white/[0.03] border-border',
+                        none: 'bg-background border-border',
                       }[confidence];
                       const confidenceDot = {
                         high: 'bg-foreground/90',
@@ -766,7 +766,7 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
                           initial={{ opacity: 0, x: -20 }}
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: index * 0.04 }}
-                          className={`flex items-center gap-3 rounded-xl px-4 py-3 border transition-all hover:bg-white/[0.04] ${confidenceColor}`}
+                          className={`flex items-center gap-3 rounded-xl px-4 py-3 border transition-all hover:bg-muted/30 shadow-sm ${confidenceColor}`}
                         >
                           {/* System field label */}
                           <div className="flex items-center gap-2.5 min-w-[130px]">
@@ -812,7 +812,7 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.2 }}
-                  className="lg:w-[380px] flex-shrink-0 bg-black/30 rounded-xl border border-border overflow-hidden flex flex-col"
+                  className="lg:w-[380px] flex-shrink-0 bg-background rounded-xl border border-border shadow-sm overflow-hidden flex flex-col"
                 >
                   <div className="px-4 py-2.5 border-b border-border flex items-center gap-2 shrink-0">
                     <FileSpreadsheet className="h-3.5 w-3.5 text-muted-foreground" />
@@ -821,7 +821,7 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
                   </div>
                   <div className="overflow-auto flex-1" style={{ scrollbarWidth: 'thin', scrollbarColor: '#3f3f46 transparent' }}>
                     <table className="w-full text-xs">
-                      <thead className="sticky top-0 bg-[#111113]">
+                      <thead className="sticky top-0 bg-muted/50 backdrop-blur-sm z-10">
                         <tr className="border-b border-border">
                           {SYSTEM_FIELDS.filter(f => columnMap[f.key] && columnMap[f.key] !== SKIP_VALUE).map(f => {
                             const Icon = f.icon;
@@ -835,7 +835,7 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
                       </thead>
                       <tbody>
                         {csvPreviewRows.map((row, rowIdx) => (
-                          <tr key={rowIdx} className="border-b border-border last:border-0 hover:bg-white/[0.02]">
+                          <tr key={rowIdx} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
                             {SYSTEM_FIELDS.filter(f => columnMap[f.key] && columnMap[f.key] !== SKIP_VALUE).map(f => (
                               <td key={f.key} className="px-3 py-2 text-foreground text-opacity-90 whitespace-nowrap max-w-[140px] truncate">
                                 {String(row[columnMap[f.key]] || '—')}
