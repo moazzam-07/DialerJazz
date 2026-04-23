@@ -7,20 +7,16 @@ import {
   Loader2,
   AlertCircle,
   ArrowLeft,
+  ArrowRight,
+  Star,
   User,
   MapPin,
   Mail,
-  Zap,
-  MousePointerClick,
   Edit3,
   Link,
   Globe,
   Navigation,
-  ChevronDown,
-  Tag,
-  Copy,
-  Info,
-  Smartphone
+  ChevronDown
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { callsApi, leadsApi, campaignsApi } from '@/lib/api';
@@ -54,12 +50,12 @@ export default function CampaignDialerPage() {
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [totalLeadsCount, setTotalLeadsCount] = useState(0);
-  const [calledLeadsCount, setCalledLeadsCount] = useState(0);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
   const dialerSessionMode = (campaign?.dialer_mode as DialerMode) || 'click';
+  const [isLocalCallActive, setIsLocalCallActive] = useState(false);
   const [showDisposition, setShowDisposition] = useState(false);
   const [isDisposing, setIsDisposing] = useState(false);
   const [showDTMF, setShowDTMF] = useState(false);
@@ -69,11 +65,8 @@ export default function CampaignDialerPage() {
   const voice = useVoice();
   const prevCallState = useRef<CallState>('idle');
 
-  // Local SIM calling — triggers disposition when user returns from native dialer
-  const handleLocalCallReturn = useCallback(() => {
-    setShowDisposition(true);
-  }, []);
-  const { call: localCall } = useLocalCalling(handleLocalCallReturn);
+  // Local SIM calling — just opens tel URI. User must tap "End Call" manually per new spec.
+  const { call: localCall } = useLocalCalling(() => {}); // Empty callback, we trigger on button click now
 
   // Load backend data
   const loadData = useCallback(async () => {
@@ -88,15 +81,10 @@ export default function CampaignDialerPage() {
       setCampaign(campaignRes.data as Campaign);
 
       const allLeads = Array.isArray(leadsRes.data) ? leadsRes.data : [];
-      // Load ALL leads (including already-dialed) so user can navigate freely
       setLeads(allLeads);
       
-      // Track total and called counts for display
-      const dialedCount = allLeads.filter(l => l.status !== 'new' && l.status !== 'calling').length;
       setTotalLeadsCount(allLeads.length);
-      setCalledLeadsCount(dialedCount);
 
-      // Restore position by lead ID (survives array size changes)
       const savedLeadId = localStorage.getItem(`dialer_lead_${campaignId}`);
       if (savedLeadId) {
         const idx = allLeads.findIndex(l => l.id === savedLeadId);
@@ -117,28 +105,22 @@ export default function CampaignDialerPage() {
     loadData();
   }, [loadData]);
 
-  // Track this route for the ActiveCallBubble (so it knows where to return).
-  // Deliberately NOT clearing on unmount — the route must persist after
-  // navigation so the bubble can show it. It gets cleared when the call ends.
-  const isOnCall = ['trying', 'ringing', 'active'].includes(voice.primaryCallState);
+  const isOnCall = ['trying', 'ringing', 'active'].includes(voice.primaryCallState) || isLocalCallActive;
   useEffect(() => {
     if (campaignId && !isOnCall) {
       voice.setActiveCallRoute(`/campaigns/${campaignId}/dial`);
     }
-  }, [campaignId]);
+  }, [campaignId, isOnCall, voice]);
 
-  // Auto-connect to campaign's provider when campaign loads
   useEffect(() => {
     if (campaign?.provider && campaign.provider !== 'local' && voice.activeProvider !== campaign.provider) {
       voice.connectProvider(campaign.provider);
     }
-  }, [campaign?.provider]);
+  }, [campaign?.provider, voice]);
 
-  // Handle call lifecycle — show disposition after ANY call attempt ends
   useEffect(() => {
     const wasCallAttempt = ['trying', 'ringing', 'active'].includes(prevCallState.current);
     if (wasCallAttempt && voice.primaryCallState === 'done') {
-      // Call ended (whether connected or not) -> Show disposition overlay
       setShowDisposition(true);
       setShowDTMF(false);
     }
@@ -150,17 +132,20 @@ export default function CampaignDialerPage() {
   }, [voice.sipError]);
 
   const currentLead = leads[currentIndex];
-  // Maintain context
+  
   useEffect(() => {
-    if (currentLead) setNotes(currentLead.notes || '');
-    setIsDetailsExpanded(false); // reset on next lead
+    if (currentLead) {
+      setNotes(currentLead.notes || '');
+    }
+    setIsDetailsExpanded(false);
+    setIsLocalCallActive(false);
   }, [currentLead]);
 
   const handleDial = () => {
     if (!currentLead) return;
 
-    // Local SIM: use tel: URI, skip WebRTC entirely
     if (campaign?.provider === 'local') {
+      setIsLocalCallActive(true);
       localCall(currentLead.phone);
       return;
     }
@@ -171,7 +156,12 @@ export default function CampaignDialerPage() {
   };
 
   const handleHangUp = () => {
-    voice.hangup();
+    if (campaign?.provider === 'local') {
+      setIsLocalCallActive(false);
+      setShowDisposition(true);
+    } else {
+      voice.hangup();
+    }
   };
 
   const handleDisposition = async (dispositionLabel: string) => {
@@ -180,12 +170,8 @@ export default function CampaignDialerPage() {
 
     try {
       const dispValue = DISPOSITIONS.find(d => d.label === dispositionLabel)?.value || 'answered';
-      
-      // Get call duration - ensure it's a valid number
       const callDuration = typeof voice.primaryCallDuration === 'number' ? voice.primaryCallDuration : 0;
-      console.log('[CampaignDialer] Saving call - duration:', callDuration, 'disposition:', dispValue);
       
-      // Log the full call event, duration, and disposition to our new calls API
       await callsApi.log({
         lead_id: currentLead.id,
         campaign_id: campaign?.id || '',
@@ -196,20 +182,13 @@ export default function CampaignDialerPage() {
         provider: campaign?.provider || 'telnyx',
       });
       
-      // Update lead status so it won't appear on refresh
       await leadsApi.updateDisposition(currentLead.id, dispValue);
-      
       toast.success(`Marked as ${dispositionLabel}`);
       setShowDisposition(false);
 
       if (dialerSessionMode === 'power') {
-        // Auto-swipe in 1.5 seconds if power dialer
-        setTimeout(() => {
-           triggerSwipeLeft();
-        }, 1500);
+        setTimeout(() => triggerSwipeLeft(), 1500);
       }
-      // If click-to-call, we do nothing and wait for manual swipe!
-
     } catch (err: unknown) {
       toast.error('Failed to save disposition');
     } finally {
@@ -229,18 +208,18 @@ export default function CampaignDialerPage() {
   }
 
   const navigateNext = () => {
+    if (isOnCall) return; // Disable navigation during call
     if (currentIndex + 1 < leads.length) {
       const newIndex = currentIndex + 1;
       setCurrentIndex(newIndex);
-      // Save the lead ID we're navigating TO (survives array changes on refresh)
       if (campaignId && leads[newIndex]) {
         localStorage.setItem(`dialer_lead_${campaignId}`, leads[newIndex].id);
       }
-    }
-    else toast.info('All leads dialed!');
+    } else toast.info('All leads dialed!');
   }
 
   const navigatePrev = () => {
+    if (isOnCall) return; // Disable navigation during call
     if (currentIndex - 1 >= 0) {
       const newIndex = currentIndex - 1;
       setCurrentIndex(newIndex);
@@ -250,120 +229,76 @@ export default function CampaignDialerPage() {
     }
   }
 
-  // --- Framer Motion Swipe Physics ---
   const controls = useAnimation();
   const handleDragEnd = async (_event: any, info: PanInfo) => {
-    const swipeThreshold = 100; // px
+    if (isOnCall) return; // Disable swipe during active call per spec
+    const swipeThreshold = 100;
     
-    // Swipe Up: Book Meeting
     if (info.offset.y < -swipeThreshold && Math.abs(info.offset.y) > Math.abs(info.offset.x)) {
       await controls.start({ y: -1000, opacity: 0, transition: { duration: 0.3 } });
       markMeetingBooked();
       controls.set({ x: 0, y: 0, opacity: 1 });
     }
-    // Swipe Left: Next Lead (Navigate forward)
     else if (info.offset.x < -swipeThreshold) {
       await controls.start({ x: -1000, opacity: 0, transition: { duration: 0.3 } });
       navigateNext();
       controls.set({ x: 0, y: 0, opacity: 1 });
     }
-    // Swipe Right: Previous Lead (Navigate backwards)
     else if (info.offset.x > swipeThreshold) {
       await controls.start({ x: 1000, opacity: 0, transition: { duration: 0.3 } });
       navigatePrev();
       controls.set({ x: 0, y: 0, opacity: 1 });
     } 
-    // Snap back
     else {
       controls.start({ x: 0, y: 0, opacity: 1, transition: { type: 'spring', bounce: 0.4 } });
     }
   };
 
   const triggerSwipeLeft = async () => {
+    if (isOnCall) return;
     await controls.start({ x: -1000, opacity: 0, transition: { duration: 0.3 } });
     navigateNext();
     controls.set({ x: 0, y: 0, opacity: 1 });
   }
 
-  // Early returns
   if (!campaignId) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
-        <AlertCircle className="h-12 w-12 text-muted-foreground text-opacity-50 mb-4" />
-        <h2 className="text-xl font-semibold text-muted-foreground">No campaign selected</h2>
+        <AlertCircle className="h-12 w-12 text-gray-400 mb-4" />
+        <h2 className="text-xl font-semibold text-gray-500">No campaign selected</h2>
       </div>
     );
   }
-  if (isLoading) return <div className="flex justify-center py-40"><Loader2 className="h-8 w-8 animate-spin text-foreground" /></div>;
+  if (isLoading) return <div className="flex justify-center py-40"><Loader2 className="h-8 w-8 animate-spin text-black" /></div>;
   
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center max-w-md mx-auto">
         <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
-        <h2 className="text-2xl font-bold text-foreground mb-2">Error Loading Dialer</h2>
-        <p className="text-muted-foreground mb-6">{error}</p>
-        <button onClick={() => navigate('/login')} className="bg-muted hover:bg-muted/80 text-foreground px-6 py-2 rounded-xl transition-colors hover:bg-white/20 font-medium">Re-authenticate</button>
+        <h2 className="text-2xl font-bold text-black mb-2">Error Loading Dialer</h2>
+        <p className="text-gray-500 mb-6">{error}</p>
+        <button onClick={() => navigate('/login')} className="bg-gray-100 hover:bg-gray-200 text-black px-6 py-2 rounded-xl transition-colors font-medium">Re-authenticate</button>
       </div>
     );
   }
 
   if (leads.length === 0) return <div className="text-center py-40"><h2 className="text-2xl font-bold">All leads dialed!</h2></div>;
 
-
-
-  // Helper: check if a lead has already been dialed
-  const isLeadDialed = (lead: Lead) => lead.status !== 'new' && lead.status !== 'calling';
-
-
-
-  // -- Main Dialer Card Stack UI --
-  const isInCall = ['trying', 'ringing', 'active'].includes(voice.primaryCallState);
+  const isInCall = ['trying', 'ringing', 'active'].includes(voice.primaryCallState) || isLocalCallActive;
 
   return (
-    <div className="flex flex-col h-[calc(100vh-80px)] overflow-hidden bg-black animate-in fade-in duration-700">
-      {/* Top Header */}
-      <header className="flex items-center justify-between p-6 shrink-0 z-10">
-        <div className="flex items-center gap-4">
-          <button onClick={() => navigate('/campaigns')} className="p-2 bg-muted rounded-xl hover:bg-black/5 dark:hover:bg-white/5 border border-transparent hover:border-black/10 dark:hover:border-white/10 text-foreground transition-all">
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <div>
-            <h1 className="font-bold tracking-display text-lg text-foreground">{campaign?.name}</h1>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground text-opacity-70 font-medium tracking-widest uppercase">
-               {dialerSessionMode === 'power' ? <Zap className="h-3 w-3 text-foreground" /> : <MousePointerClick className="h-3 w-3 text-foreground"/>}
-               {dialerSessionMode} Mode • {calledLeadsCount + currentIndex + 1} of {totalLeadsCount} leads
-             </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {campaign?.provider === 'local' ? (
-            <span className="px-3 py-1 bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 rounded-full text-xs font-bold leading-none flex items-center gap-1.5 shadow-sm">
-              <Smartphone className="h-3 w-3" /> Local SIM
-            </span>
-          ) : voice.connectionStatus === 'registered' ? (
-             <span className="px-3 py-1 bg-background text-foreground border border-black/10 dark:border-white/10 rounded-full text-xs font-bold leading-none flex items-center gap-1.5 shadow-sm"><div className="h-1.5 w-1.5 rounded-full bg-foreground animate-pulse"/> SIP Registered</span>
-          ) : (
-             <span className="px-3 py-1 bg-muted text-muted-foreground border border-border rounded-full text-xs font-bold leading-none flex items-center gap-1.5"><Loader2 className="h-3 w-3 animate-spin"/> Connecting</span>
-          )}
-        </div>
-      </header>
-
+    <div className="flex flex-col h-[calc(100vh-80px)] overflow-hidden bg-white md:bg-[#F5F5F7] animate-in fade-in duration-700">
+      
       {/* Center - Swiping Deck Container */}
-      <main className="flex-1 relative flex items-center justify-center -mt-6">
+      <main className="flex-1 relative flex items-center justify-center pt-4 pb-0 md:py-8">
         
-        {/* Background Hint layer */}
-        <div className="absolute inset-0 flex items-center justify-between px-10 pointer-events-none opacity-20">
-            <div className="flex flex-col items-center gap-2"><ArrowLeft className="h-10 w-10 text-foreground"/><span className="font-bold uppercase tracking-widest text-muted-foreground">Next</span></div>
-            <div className="flex flex-col items-center gap-2"><ArrowLeft className="h-10 w-10 rotate-180 text-foreground"/><span className="font-bold uppercase tracking-widest text-muted-foreground">Previous</span></div>
-        </div>
-
         {/* Card Deck */}
-        <div className="relative w-full max-w-sm h-[600px] flex items-center justify-center z-10 perspective-[1000px]">
+        <div className="relative w-full h-full md:max-w-[420px] md:h-[750px] flex items-center justify-center z-10 perspective-[1000px]">
           
           {/* Card Next (Behind) */}
           {leads[currentIndex + 1] && (
             <motion.div 
-              className="absolute w-full h-full bg-surface/50 backdrop-blur-xl border border-border/50 shadow-2xl rounded-3xl"
+              className="absolute w-full h-full bg-gray-50 border border-gray-200/50 shadow-sm rounded-t-[2.5rem] md:rounded-3xl"
               initial={{ scale: 0.95, y: 20, z: -50 }}
               animate={{ scale: 0.95, y: 20, z: -50 }}
             />
@@ -373,119 +308,152 @@ export default function CampaignDialerPage() {
           {currentLead ? (
             <motion.div 
               key={currentLead.id}
-              drag={!isInCall && !showDisposition && !isDetailsExpanded} // Disable swipe if details expanded
-              dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
+              drag={!isInCall && !showDisposition && !isDetailsExpanded ? 'x' : false} // Disable swipe if details expanded or on call
+              dragConstraints={{ left: 0, right: 0 }}
               onDragEnd={handleDragEnd}
               animate={controls}
-              className="absolute w-full h-full glass-solid rounded-[2rem] p-6 flex flex-col cursor-grab active:cursor-grabbing transform-gpu overflow-hidden"
-              style={{ paddingBottom: '90px' }} // Room for dial button mapping
+              className="absolute w-full h-full bg-white md:border md:border-gray-200 md:shadow-xl rounded-t-[2.5rem] md:rounded-3xl flex flex-col cursor-grab active:cursor-grabbing transform-gpu overflow-hidden"
             >
-                  <button 
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); setIsDetailsExpanded(!isDetailsExpanded); }}
-                    className="absolute top-6 right-6 z-30 h-10 w-10 bg-black/10 dark:bg-white/5 hover:bg-black/20 dark:hover:bg-white/10 rounded-full flex items-center justify-center transition-colors pointer-events-auto"
-                    title="Toggle Expand"
-                  >
-                    {isDetailsExpanded ? <ChevronDown className="h-5 w-5 text-foreground" /> : <Info className="h-5 w-5 text-foreground" />}
+              {/* Top Navigation Bar inside card */}
+              <div className="flex items-center justify-between px-6 py-4 shrink-0 bg-white z-20">
+                <button onClick={() => navigate('/campaigns')} className="p-2 -ml-2 text-gray-400 hover:text-black hover:bg-gray-100 rounded-full transition-colors">
+                  <ArrowLeft className="h-6 w-6" />
+                </button>
+                <div className="flex items-center gap-4">
+                  <button onClick={navigatePrev} disabled={isOnCall || currentIndex === 0} className="p-2 text-gray-400 hover:text-black disabled:opacity-30 disabled:hover:text-gray-400 transition-colors">
+                    <ArrowLeft className="h-5 w-5" />
                   </button>
-                  <div className="flex flex-col items-center text-center mt-6 mb-4 relative z-10 pointer-events-none">
-                 {/* Dialed checkmark badge */}
-                 {isLeadDialed(currentLead) && (
-                   <div className="absolute -top-2 -right-2 h-7 w-7 rounded-full bg-foreground text-background flex items-center justify-center shadow-sm z-20">
-                     <svg className="h-4 w-4 bg-transparent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                   </div>
-                 )}
-                 <div className="h-24 w-24 rounded-full bg-muted border border-black/5 dark:border-white/5 shadow-sm flex items-center justify-center mb-4">
-                    <User className="h-10 w-10 text-foreground" />
-                 </div>
-                 <h2 className="text-3xl font-extrabold tracking-display text-foreground">{currentLead.first_name} {currentLead.last_name || ''}</h2>
-                 {currentLead.company && <h3 className="text-lg text-muted-foreground font-medium mt-1 tracking-body">{currentLead.company}</h3>}
+                  <span className="text-sm font-bold text-gray-600 tracking-widest font-mono">
+                    {currentIndex + 1} / {totalLeadsCount}
+                  </span>
+                  <button onClick={navigateNext} disabled={isOnCall || currentIndex >= leads.length - 1} className="p-2 text-gray-400 hover:text-black disabled:opacity-30 disabled:hover:text-gray-400 transition-colors">
+                    <ArrowRight className="h-5 w-5" />
+                  </button>
+                </div>
               </div>
 
               <div 
-                className="flex-1 flex flex-col gap-2 relative z-10 overflow-y-auto no-scrollbar pointer-events-auto pb-4" 
+                className="flex-1 flex flex-col relative z-10 overflow-y-auto no-scrollbar pointer-events-auto pb-32" 
                 onPointerDownCapture={(e) => {
-                  // If details are expanded, touching this area should not drag the card (already handled by drag={!isDetailsExpanded})
                   if (isDetailsExpanded) e.stopPropagation();
                 }}
               >
-                <div className="space-y-4 mb-2 relative z-10 bg-black/20 rounded-2xl p-4 border border-border shrink-0">
-                   <div className="flex items-center gap-3">
-                      <Phone className="h-4 w-4 text-muted-foreground text-opacity-70 shrink-0" />
-                      <span className="text-lg font-mono font-semibold text-foreground">{currentLead.phone}</span>
-                   </div>
-                   {currentLead.email && !isDetailsExpanded && (
-                   <div className="flex items-center gap-3">
-                      <Mail className="h-4 w-4 text-muted-foreground text-opacity-70 shrink-0" />
-                      <span className="text-sm font-medium text-foreground text-opacity-90 truncate">{currentLead.email}</span>
-                   </div>
-                   )}
-                   {(currentLead.city || currentLead.state) && (
-                   <div className="flex items-center gap-3">
-                      <MapPin className="h-4 w-4 text-muted-foreground text-opacity-70 shrink-0" />
-                      <span className="text-sm font-medium text-foreground text-opacity-90 truncate">{currentLead.city}, {currentLead.state}</span>
-                   </div>
-                   )}
+                {/* Top Zone: Business Identity */}
+                <div className="px-8 pt-4 pb-6 flex flex-col items-center text-center">
+                  <div className="h-20 w-20 rounded-full bg-gray-100 shadow-sm flex items-center justify-center mb-5 border border-gray-200">
+                    <User className="h-8 w-8 text-gray-400" />
+                  </div>
+                  
+                  {/* Tier 1 Typography */}
+                  <h2 className="text-[26px] leading-tight font-bold text-black mb-1">
+                    {currentLead.company || `${currentLead.first_name} ${currentLead.last_name || ''}`.trim()}
+                  </h2>
+                  
+                  {currentLead.company && (currentLead.first_name || currentLead.last_name) && (
+                    <p className="text-gray-500 font-medium text-[15px] mb-2">
+                      {currentLead.first_name} {currentLead.last_name || ''}
+                    </p>
+                  )}
+
+                  {/* Rating & Review Count */}
+                  {(currentLead.google_rating || currentLead.review_count) && (
+                    <div className="flex items-center gap-1 mb-2 text-[14px] font-medium text-gray-700">
+                      <span className="text-black font-bold">{currentLead.google_rating?.toFixed(1) || '4.0'}</span>
+                      <Star className="w-4 h-4 text-[#FABB05] fill-[#FABB05]" />
+                      <span className="text-gray-400 ml-1">({currentLead.review_count || 0})</span>
+                    </div>
+                  )}
+
+                  {/* Location */}
+                  {(currentLead.city || currentLead.state) && (
+                    <div className="flex items-center gap-1.5 text-[14px] font-medium text-gray-500">
+                      <MapPin className="h-4 w-4 shrink-0" />
+                      <span>{currentLead.city}{currentLead.city && currentLead.state ? ', ' : ''}{currentLead.state}</span>
+                    </div>
+                  )}
                 </div>
 
-                {isDetailsExpanded && (
-                   <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-4 mt-2 shrink-0">
-                      
-                      {/* Social/Link grid */}
-                      <div className="grid grid-cols-2 gap-2">
-                        {currentLead.website && (
-                            <a href={currentLead.website} target="_blank" rel="noreferrer" className="flex items-center gap-2 p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 text-xs font-medium text-foreground">
-                              <Globe className="h-4 w-4 shrink-0 text-blue-400" /> <span className="truncate">Website</span>
-                            </a>
-                        )}
-                        {currentLead.linkedin_url && (
-                            <a href={currentLead.linkedin_url} target="_blank" rel="noreferrer" className="flex items-center gap-2 p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 text-xs font-medium text-foreground">
-                              <Link className="h-4 w-4 shrink-0 text-blue-500" /> <span className="truncate">LinkedIn</span>
-                            </a>
-                        )}
-                        {currentLead.google_maps_url && (
-                            <a href={currentLead.google_maps_url} target="_blank" rel="noreferrer" className="flex items-center gap-2 p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 text-xs font-medium text-foreground">
-                              <Navigation className="h-4 w-4 shrink-0 text-green-400" /> <span className="truncate">Maps</span>
-                            </a>
-                        )}
-                        {currentLead.email && (
-                            <button onClick={() => { navigator.clipboard.writeText(currentLead.email!); toast.success('Copied email') }} className="flex items-center gap-2 p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 text-xs font-medium text-foreground text-left">
-                              <Copy className="h-4 w-4 shrink-0 text-muted-foreground" /> <span className="truncate">{currentLead.email}</span>
-                            </button>
-                        )}
-                      </div>
+                {/* Middle Zone: Action Pills */}
+                <div className="px-6 flex flex-col gap-3 mb-6">
+                  {/* Phone Pill */}
+                  <button 
+                    onClick={() => { navigator.clipboard.writeText(currentLead.phone); toast.success('Phone copied'); }}
+                    className="w-full flex items-center justify-center gap-3 bg-gray-100 hover:bg-gray-200 active:scale-95 py-4 rounded-2xl transition-all"
+                  >
+                    <Phone className="w-5 h-5 text-gray-600" />
+                    <span className="text-[18px] font-bold text-black font-mono tracking-wide">{currentLead.phone}</span>
+                  </button>
 
-                      {/* Tags */}
-                      {currentLead.tags && currentLead.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-2 px-1">
-                              {currentLead.tags.map((tag: string, i: number) => (
-                                  <span key={i} className="px-2.5 py-1 bg-black/30 dark:bg-black/40 border border-white/10 rounded-md text-xs font-mono text-white/90 flex items-center gap-1.5 backdrop-blur-sm"><Tag className="w-3 h-3 text-emerald-400" /> {tag}</span>
-                              ))}
-                          </div>
+                  {/* Links Row */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {currentLead.website ? (
+                      <a href={currentLead.website} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-gray-50 border border-gray-100 hover:bg-gray-100 text-black font-semibold text-[13px] transition-colors">
+                        <Globe className="w-4 h-4 text-blue-500" /> Website
+                      </a>
+                    ) : (
+                      <div className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-gray-50/50 border border-gray-100 text-gray-400 font-semibold text-[13px]">
+                        <Globe className="w-4 h-4 opacity-50" /> No Website
+                      </div>
+                    )}
+                    
+                    {currentLead.google_maps_url ? (
+                      <a href={currentLead.google_maps_url} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-gray-50 border border-gray-100 hover:bg-gray-100 text-black font-semibold text-[13px] transition-colors">
+                        <Navigation className="w-4 h-4 text-emerald-500" /> Maps Profile
+                      </a>
+                    ) : (
+                      <div className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-gray-50/50 border border-gray-100 text-gray-400 font-semibold text-[13px]">
+                        <Navigation className="w-4 h-4 opacity-50" /> No Maps
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Expandable Details Toggle */}
+                <div className="px-6 flex items-center justify-center mb-2">
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setIsDetailsExpanded(!isDetailsExpanded); }}
+                    className="flex items-center gap-1.5 text-xs font-bold text-gray-400 uppercase tracking-widest hover:text-black transition-colors"
+                  >
+                    {isDetailsExpanded ? 'Hide Details' : 'Show Details'} <ChevronDown className={`w-4 h-4 transition-transform ${isDetailsExpanded ? 'rotate-180' : ''}`} />
+                  </button>
+                </div>
+
+                {/* Expandable Zone */}
+                {isDetailsExpanded && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="px-6 flex flex-col gap-4 overflow-hidden">
+                    <div className="grid grid-cols-2 gap-3 mt-2">
+                      {currentLead.linkedin_url && (
+                        <a href={currentLead.linkedin_url} target="_blank" rel="noreferrer" className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-blue-50 text-blue-700 font-medium text-[13px]">
+                          <Link className="h-4 w-4 shrink-0" /> LinkedIn
+                        </a>
                       )}
-                   </motion.div>
+                      {currentLead.email && (
+                        <button onClick={() => { navigator.clipboard.writeText(currentLead.email!); toast.success('Copied email') }} className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-gray-50 text-gray-700 font-medium text-[13px] text-left">
+                          <Mail className="h-4 w-4 shrink-0" /> <span className="truncate">{currentLead.email}</span>
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col gap-1.5 mt-2">
+                      <span className="text-[11px] font-bold uppercase tracking-widest text-gray-400 ml-1">Scratchpad</span>
+                      <textarea 
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                        onPointerDownCapture={(e) => e.stopPropagation()} 
+                        placeholder="Jot down notes before, during, or after the call..."
+                        className="w-full min-h-[120px] bg-gray-50 border border-gray-200 rounded-2xl resize-none p-4 text-sm text-black hover:bg-gray-100 focus:bg-white focus:border-black/20 focus:ring-4 focus:ring-black/5 focus:outline-none transition-all"
+                      />
+                    </div>
+                  </motion.div>
                 )}
 
-                {/* Editable Tags / Notes Layer */}
-                <div className="flex-1 flex flex-col gap-2 relative z-10 shrink-0 mt-2">
-                   <div className="flex items-center gap-2 mb-1 px-1">
-                      <Edit3 className="h-3 w-3 text-muted-foreground text-opacity-70" />
-                      <span className="text-xs uppercase font-bold text-muted-foreground text-opacity-70 tracking-widest">Scratchpad</span>
-                   </div>
-                   <textarea 
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      onPointerDownCapture={(e) => e.stopPropagation()} // Make sure we can select and scroll inside textarea
-                      placeholder="Jot down notes before, during, or after the call..."
-                      className="w-full min-h-[120px] flex-1 bg-white/[0.02] border border-black/5 dark:border-white/5 rounded-xl resize-none p-3 text-sm text-foreground text-opacity-90 hover:bg-white/[0.04] focus:bg-white/[0.04] focus:ring-1 focus:ring-foreground/20 focus:border-foreground/30 focus:outline-none transition-colors"
-                   />
-                </div>
               </div>
 
               {/* Call Controls (Dial / Hang Up / DTMF Toggle) */}
               <CallControls
                 callState={voice.primaryCallState}
                 dialerMode={dialerSessionMode!}
+                isLocalCallActive={isLocalCallActive}
                 onDial={handleDial}
                 onHangUp={handleHangUp}
                 onToggleDTMF={() => setShowDTMF(!showDTMF)}
@@ -506,11 +474,21 @@ export default function CampaignDialerPage() {
                 dispositions={DISPOSITIONS}
                 isDisposing={isDisposing}
                 onSelect={handleDisposition}
+                onDismiss={() => setShowDisposition(false)}
               />
+              
+              {/* Floating "Log Disposition" Button if sheet is dismissed but not logged */}
+              {!showDisposition && (voice.primaryCallState === 'done' || prevCallState.current !== 'idle') && currentLead.status !== 'answered' && currentLead.status !== 'completed' && (
+                <div className="absolute top-20 right-6 z-40">
+                  <button onClick={() => setShowDisposition(true)} className="bg-black text-white px-4 py-2 rounded-full font-bold text-xs shadow-lg flex items-center gap-2 animate-in slide-in-from-right-4">
+                    <Edit3 className="w-3 h-3" /> Log Outcome
+                  </button>
+                </div>
+              )}
             </motion.div>
           ) : (
             <div className="text-center">
-              <h2 className="text-2xl font-bold text-muted-foreground text-opacity-50">No leads available</h2>
+              <h2 className="text-2xl font-bold text-gray-400">No leads available</h2>
             </div>
           )}
 
