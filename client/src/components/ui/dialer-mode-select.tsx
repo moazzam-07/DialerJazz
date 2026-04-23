@@ -49,20 +49,20 @@ export function DialerModeSelect({ value, onChange }: DialerModeSelectProps) {
     <div
       ref={containerRef}
       className={cn(
-        "w-full rounded-2xl shadow-2xl overflow-hidden cursor-pointer select-none border transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]",
-        "bg-surface",
-        isOpen ? "border-foreground/50 shadow-foreground/10" : "border-border hover:border-white/20",
-        isOpen ? "rounded-3xl" : "rounded-2xl"
+        "w-full rounded-2xl overflow-hidden cursor-pointer select-none border transition-all duration-300 ease-out shadow-sm hover:shadow",
+        "bg-background",
+        isOpen ? "border-primary shadow-primary/5" : "border-input hover:border-foreground/30",
+        isOpen ? "rounded-2xl" : "rounded-2xl"
       )}
     >
       {/* Header (Trigger) */}
       <div 
-        className="flex items-center gap-4 p-3 bg-black/20"
+        className="flex items-center gap-4 p-4 bg-transparent hover:bg-muted/30 transition-colors"
         onClick={() => setIsOpen(!isOpen)}
       >
         <div className={cn(
-          "flex h-12 w-12 items-center justify-center rounded-xl transition-colors duration-300",
-          isOpen ? "bg-foreground/20 text-muted-foreground" : "bg-muted text-muted-foreground"
+          "flex h-10 w-10 items-center justify-center rounded-xl transition-colors duration-300 shrink-0",
+          isOpen ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
         )}>
           {selectedMode.icon}
         </div>
@@ -70,9 +70,8 @@ export function DialerModeSelect({ value, onChange }: DialerModeSelectProps) {
           <h3 className="text-base font-semibold text-foreground">{selectedMode.title}</h3>
           <p
             className={cn(
-              "text-sm text-muted-foreground",
-              "transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]",
-              isOpen ? "opacity-0 max-h-0 mt-0" : "opacity-100 max-h-6 mt-0.5"
+              "text-sm text-muted-foreground transition-all duration-300",
+              isOpen ? "opacity-0 max-h-0 mt-0" : "opacity-100 max-h-6 mt-1"
             )}
           >
             {selectedMode.description}
@@ -91,8 +90,8 @@ export function DialerModeSelect({ value, onChange }: DialerModeSelectProps) {
       {/* Options List */}
       <div
         className={cn(
-          "grid bg-surface",
-          "transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]",
+          "grid bg-background",
+          "transition-all duration-300 ease-out",
           isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
         )}
       >
@@ -109,10 +108,10 @@ export function DialerModeSelect({ value, onChange }: DialerModeSelectProps) {
                       setIsOpen(false);
                     }}
                     className={cn(
-                      "flex items-start gap-3 rounded-xl p-3",
-                      "transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]",
-                      isSelected ? "bg-foreground/10" : "hover:bg-muted",
-                      isOpen ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"
+                      "flex items-start gap-4 rounded-xl p-3 cursor-pointer",
+                      "transition-all duration-300 ease-out",
+                      isSelected ? "bg-primary/5" : "hover:bg-muted/50",
+                      isOpen ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
                     )}
                     style={{
                       transitionDelay: isOpen ? `${index * 50}ms` : "0ms",
@@ -120,14 +119,14 @@ export function DialerModeSelect({ value, onChange }: DialerModeSelectProps) {
                   >
                     <div className={cn(
                       "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors duration-300",
-                      isSelected ? "bg-foreground/20 text-muted-foreground" : "bg-muted text-muted-foreground"
+                      isSelected ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
                     )}>
                       {mode.icon}
                     </div>
                     <div className="flex-1 min-w-0">
                       <h4 className={cn(
                         "text-sm font-semibold",
-                        isSelected ? "text-muted-foreground" : "text-foreground"
+                        isSelected ? "text-primary" : "text-foreground"
                       )}>
                         {mode.title}
                       </h4>

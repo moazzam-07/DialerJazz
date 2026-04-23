@@ -453,14 +453,14 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={step === 'success' ? onClose : undefined} />
       
       <motion.div 
-        className={`relative bg-surface border border-border rounded-2xl p-6 w-full mx-4 shadow-2xl overflow-y-auto flex flex-col max-h-[90vh] transition-all duration-300 ${step === 'map_csv' ? 'max-w-5xl' : 'max-w-2xl'}`}
-        style={{ overscrollBehavior: 'contain' }}
+        className={`relative bg-background border border-border rounded-3xl p-8 w-full mx-4 shadow-2xl overflow-y-auto flex flex-col max-h-[90vh] transition-all duration-300 ${step === 'map_csv' ? 'max-w-5xl' : 'max-w-2xl'}`}
+        style={{ overscrollBehavior: 'none', scrollbarWidth: 'none' }}
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ duration: 0.2 }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between mb-4 shrink-0">
+        <div className="flex items-center justify-between mb-6 shrink-0">
           <div className="flex items-center gap-3">
             {step !== 'details' && step !== 'success' && (
               <button onClick={handleBack} className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-lg hover:bg-muted">
@@ -468,9 +468,9 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
               </button>
             )}
             <div>
-              <h2 className="text-xl font-bold text-foreground">{getStepTitle()}</h2>
+              <h2 className="text-2xl font-bold text-foreground tracking-tight">{getStepTitle()}</h2>
               {getStepSubtitle() && (
-                <p className="text-sm text-muted-foreground mt-0.5">{getStepSubtitle()}</p>
+                <p className="text-sm text-muted-foreground mt-1">{getStepSubtitle()}</p>
               )}
             </div>
           </div>
@@ -493,9 +493,9 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
               
               return (
                 <div key={s} className="flex items-center gap-1 flex-1">
-                  <div className={`h-1.5 rounded-full flex-1 transition-all duration-500 ${
-                    isActive ? 'bg-foreground' : 'bg-muted hover:bg-muted/80'
-                  } ${isCurrent ? 'bg-foreground/90 shadow-lg shadow-foreground/30' : ''}`} />
+                  <div className={`h-2 rounded-full flex-1 transition-all duration-500 ${
+                    isActive ? 'bg-primary' : 'bg-muted'
+                  } ${isCurrent ? 'bg-primary shadow-[0_0_10px_rgba(var(--primary),0.3)]' : ''}`} />
                 </div>
               );
             })}
@@ -506,25 +506,25 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
         {step === 'details' && (
           <form onSubmit={handleCreateDetails} className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-2">Campaign Name</label>
+              <label className="block text-sm font-semibold text-foreground mb-2">Campaign Name</label>
               <input
                 autoFocus
                 type="text"
                 placeholder="e.g. Q4 Outreach Strategy"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl bg-black/30 border border-border text-foreground focus:ring-2 focus:ring-foreground/40 focus:border-foreground/40 transition-all outline-none"
+                className="w-full px-4 py-3 rounded-xl bg-background border border-input text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none shadow-sm"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-2">Dialer Mode</label>
+              <label className="block text-sm font-semibold text-foreground mb-2">Dialer Mode</label>
               <DialerModeSelect 
                 value={dialerMode}
                 onChange={setDialerMode}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-2">Telephony Provider</label>
+              <label className="block text-sm font-semibold text-foreground mb-2">Telephony Provider</label>
               <ProviderSelect 
                 value={provider}
                 onChange={(val) => setProvider(val as 'telnyx' | 'twilio' | 'local')}
@@ -532,23 +532,23 @@ export default function CreateCampaignModal({ isOpen, onClose, onCreated }: Prop
             </div>
             {provider !== 'local' && (
               <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-2">
-                  Caller ID <span className="text-muted-foreground/50 font-normal">(Optional)</span>
+                <label className="block text-sm font-semibold text-foreground mb-2">
+                  Caller ID <span className="text-muted-foreground font-normal ml-1">(Optional)</span>
                 </label>
                 <input
                   type="text"
                   placeholder="+1234567890"
                   value={callerNumber}
                   onChange={(e) => setCallerNumber(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl bg-black/30 border border-border text-foreground focus:ring-2 focus:ring-foreground/40 focus:border-foreground/40 transition-all outline-none"
+                  className="w-full px-4 py-3 rounded-xl bg-background border border-input text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none shadow-sm"
                 />
               </div>
             )}
-            <div className="flex justify-end pt-4 border-t border-border">
+            <div className="flex justify-end pt-6 border-t border-border mt-8">
               <button 
                 type="submit" 
                 disabled={!name.trim()}
-                className="bg-foreground hover:bg-foreground/90 text-background px-6 py-2.5 rounded-xl font-semibold flex items-center gap-2 disabled:opacity-50 transition-colors"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-3 rounded-xl font-semibold flex items-center gap-2 disabled:opacity-50 transition-colors shadow-sm"
               >
                 <span>Continue <ChevronRight className="h-4 w-4 inline" /></span>
               </button>
